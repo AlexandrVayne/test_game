@@ -120,6 +120,7 @@ from pockie_rpg.config import (
 )
 from pockie_rpg.game.state import ENEMY_MOBS, ROLES, STARTER_SUITS
 from pockie_rpg.ui.animator import ClickRect
+from pockie_rpg.ui.tooltip import PanelStyle, TooltipLine, render_tooltip_panel
 
 
 def _wrap_text(text: str, max_chars_per_line: int) -> list[str]:
@@ -291,6 +292,9 @@ class BattleRendererMixin:
         """Render top HUD: avatars + names + HP/MP bars + central VS emblem.
 
         Stage 98 — removed black HUD background (transparent, shows battle bg).
+        Stage 202 — оркестрация: симметричные половины _render_hud_player /
+        _render_hud_enemy, эмблема VS, ряды иконок статусов (+тултип) и
+        очередь гантелей — по якорям полосок, возвращаемым половинами.
         """
         # Stage 98 — no background fill (transparent HUD, shows battle bg).
         # Stage 99 — removed bottom border line (per user request).
@@ -304,6 +308,19 @@ class BattleRendererMixin:
         if player_role is None or enemy_role is None:
             return
 
+        p_bars = self._render_hud_player(player_role)
+        e_bars = self._render_hud_enemy(enemy, enemy_role)
+        self._render_vs_emblem(SCREEN_WIDTH // 2, HUD_HEIGHT // 2)
+        icon_rects = self._render_hud_status_icons(p_bars, e_bars)
+        self._render_status_tooltip(icon_rects)
+        self._render_gauntlet_queue(e_bars[1])
+
+    def _render_hud_player(self, player_role) -> tuple[int, int]:
+        """Stage 202 — левая половина HUD: аватар + плашка имени + HP/MP.
+
+        Возвращает (hp_x, mp_y) — дизайн-якоря ряда иконок статусов.
+        """
+        suit = STARTER_SUITS.get(self.player.suit_id)
         avatar_sz = self._su(AVATAR_SIZE)
         avatar_x = 16
         avatar_y = (HUD_HEIGHT - AVATAR_SIZE) // 2
@@ -415,10 +432,20 @@ class BattleRendererMixin:
             gradient_to=MP_GRADIENT_COLOR_TO,
         )
 
+        return (hp_x, mp_y)
+
+    def _render_hud_enemy(self, enemy, enemy_role) -> tuple[int, int]:
+        """Stage 202 — правая половина HUD (зеркально): аватар + плашка
+        имя/уровень + HP/MP. Возвращает (hp_x, mp_y) — дизайн-якоря ряда
+        иконок статусов.
+        """
+        avatar_sz = self._su(AVATAR_SIZE)
         enemy_avatar = self.asset_manager.get_enemy_avatar(self.target_mob_id, avatar_sz)
         enemy_avatar_x = SCREEN_WIDTH - AVATAR_SIZE - 16
         enemy_avatar_y = (HUD_HEIGHT - AVATAR_SIZE) // 2
         # Stage 99 — decorative avatar frame for enemy.
+        frame_surf = self._get_avatar_frame()
+        frame_pad = (frame_surf.get_width() - avatar_sz) // 2
         self.screen.blit(
             frame_surf,
             (self._su(enemy_avatar_x) - frame_pad, self._su(enemy_avatar_y) - frame_pad),
@@ -463,16 +490,16 @@ class BattleRendererMixin:
             name_text = name_text[:-1]
             enemy_name_surf = enemy_name_font.render(name_text + "…", True, e_name_color)
         # Stage 199/200 — подложка врага: текст вертикально центрирован,
-        # fade-in как у игрока. ГОТЧА: имени уже добавлен аутлайн (+2px
-        # справа) — правый край имени = bar_right - name_w + 2.
-        # Stage 201 — геометрия плашки: дизайн-база ×_su (текст уже нативный).
+        # fade-in как у игрока. Stage 202 — фикс: геометрия плашки считается
+        # от ШИРИН С АУТЛАЙНОМ (имя прижато к правому краю полоски, уровень
+        # левее); раньше ширина уровня бралась без аутлайна + магический «+1»
+        # в blit — чёрный аутлайн мог вылезать за левый край подложки.
         enemy_name_surf = _outlined_text(enemy_name_surf)
         enemy_lvl_outlined = _outlined_text(enemy_lvl_surf)
-        e_plate_right = self._su(enemy_bar_right) - enemy_name_surf.get_width() + self._su(2) + self._su(5)
-        e_plate_left = (
-            self._su(enemy_bar_right) - enemy_name_surf.get_width()
-            - self._su(10) - enemy_lvl_surf.get_width() - self._su(4)
-        )
+        e_name_x = self._su(enemy_bar_right) - enemy_name_surf.get_width()
+        e_lvl_x = e_name_x - self._su(10) - enemy_lvl_outlined.get_width()
+        e_plate_left = e_lvl_x - self._su(4)
+        e_plate_right = self._su(enemy_bar_right) + self._su(5)
         e_plate_w = e_plate_right - e_plate_left
         plate_h = self._su(24)
         plate_alpha = int(HUD_THEME["name_plate_alpha"] * getattr(self, "_hud_plate_fade", 1.0))
@@ -493,16 +520,11 @@ class BattleRendererMixin:
         e_plate_cy = self._su(enemy_name_y - 4) + plate_h // 2
         self.screen.blit(
             enemy_name_surf,
-            (self._su(enemy_bar_right) - enemy_name_surf.get_width(),
-             e_plate_cy - enemy_name_surf.get_height() // 2)
+            (e_name_x, e_plate_cy - enemy_name_surf.get_height() // 2)
         )
         self.screen.blit(
             enemy_lvl_outlined,
-            (
-                self._su(enemy_bar_right) - enemy_name_surf.get_width()
-                - self._su(10) - enemy_lvl_surf.get_width() + self._su(1),
-                e_plate_cy - enemy_lvl_outlined.get_height() // 2,
-            ),
+            (e_lvl_x, e_plate_cy - enemy_lvl_outlined.get_height() // 2),
         )
 
         enemy_hp_y = enemy_name_y + 24
@@ -545,12 +567,23 @@ class BattleRendererMixin:
             gradient_to=MP_GRADIENT_COLOR_TO,
         )
 
-        self._render_vs_emblem(SCREEN_WIDTH // 2, HUD_HEIGHT // 2)
+        return (enemy_hp_x, enemy_mp_y)
 
-        # Stage 192/195 — иконки статусов ЗЕРКАЛЬНО от кончиков полосок,
-        # С ТЕНЬЮ (2px drop-shadow) и МИНИ-СЧЁТЧИКОМ ходов в углу.
-        # Stage 201 — rect'ы для ховера/тултипа — ДИЗАЙН (мышь боя в дизайн
-        # пространстве окна), отрисовка — нативная (через _blit_status_icon).
+    def _render_hud_status_icons(
+        self,
+        p_bars: tuple[int, int],
+        e_bars: tuple[int, int],
+    ) -> list[tuple[pygame.Rect, str, int]]:
+        """Stage 202 — ряды иконок статусов зеркально от кончиков полосок.
+
+        Stage 192/195 — С ТЕНЬЮ (2px drop-shadow) и МИНИ-СЧЁТЧИКОМ ходов в
+        углу; Stage 201 — rect'ы для ховера/тултипа — ДИЗАЙН (мышь боя в
+        дизайн-пространстве окна), отрисовка — нативная (_blit_status_icon).
+        Возвращает rect'ы для _render_status_tooltip (ClickRect'ы не
+        регистрируются — тултип пассивный).
+        """
+        hp_x, mp_y = p_bars
+        enemy_hp_x, enemy_mp_y = e_bars
         icon_rects: list[tuple[pygame.Rect, str, int]] = []
         if self._player_fighter is not None:
             active = self._player_fighter.status.get_active()
@@ -589,11 +622,14 @@ class BattleRendererMixin:
                          status_name, duration)
                     )
 
-        # Stage 195 — тултип иконки статуса при наведении (имя + описание).
-        self._render_status_tooltip(icon_rects)
+        return icon_rects
 
-        # Stage 134 — slot-gauntlet enemy queue: below the enemy debuff row,
-        # right-aligned to the HUD edge. Only rendered during the gauntlet.
+    def _render_gauntlet_queue(self, enemy_mp_y: int) -> None:
+        """Stage 134 — очередь гантлея: будущие/прошедшие враги справа.
+
+        Stage 202 — вынесена из _render_hud; якорь — низ вражеской колонки
+        (mp_y врага). Только в режиме гантелея, ниже ряда дебаффов врага.
+        """
         if self._gauntlet_active and self._gauntlet_enemies:
             face_size = SLOT_QUEUE_FACE_SIZE
             face_gap = SLOT_QUEUE_GAP
@@ -841,9 +877,9 @@ class BattleRendererMixin:
     ) -> None:
         """Stage 195 — тултип иконки статуса при наведении.
 
-        Панель у курсора: ИМЯ (золото) → описание с переносом → строка
-        «осталось N ход.». Флип у краёв экрана. Только для статусов из
-        STATUS_TOOLTIPS.
+        Stage 202 — панель через единый хелпер ui/tooltip.py («панель у
+        курсора»: имя → описание с переносом → строка ходов; флип у краёв
+        экрана). Только для статусов из STATUS_TOOLTIPS.
         """
         from pockie_rpg.config import STATUS_TOOLTIPS
 
@@ -860,60 +896,16 @@ class BattleRendererMixin:
             return
         name, desc = info
 
-        font_name = self._su_font(14, bold=True)
-        font_body = self._su_font(12)
-        name_surf = font_name.render(name, True, (250, 204, 21))
-        # перенос описания по ширине
-        wrap_w = self._su(260)
-        desc_lines: list[str] = []
-        cur = ""
-        for word in desc.split():
-            trial = f"{cur} {word}" if cur else word
-            if font_body.size(trial)[0] <= wrap_w:
-                cur = trial
-            else:
-                if cur:
-                    desc_lines.append(cur)
-                cur = word
-        if cur:
-            desc_lines.append(cur)
-        dur_text = f"Осталось ходов: {duration}"
-        dur_surf = font_body.render(dur_text, True, (161, 161, 170))
-
-        pad = self._su(8)
-        w = max(
-            name_surf.get_width(),
-            max(font_body.size(line)[0] for line in desc_lines) if desc_lines else 0,
-            dur_surf.get_width(),
-        ) + pad * 2
-        h = (
-            name_surf.get_height()
-            + (len(desc_lines)) * (font_body.get_height() + self._su(1))
-            + dur_surf.get_height()
-            + pad * 2 + self._su(6)
+        lines = [
+            TooltipLine(name, (250, 204, 21), size=14, bold=True),
+            TooltipLine(desc, (212, 212, 216), size=12, space_before=4),
+            TooltipLine(f"Осталось ходов: {duration}", (161, 161, 170),
+                        size=12, space_before=4),
+        ]
+        render_tooltip_panel(
+            self, lines, cursor=self._mouse_pos, wrap_width=260,
+            style=PanelStyle(),
         )
-        mx, my = self._mouse_pos
-        tx = self._su(mx) + self._su(16)
-        ty = self._su(my) + self._su(16)
-        scr_w, scr_h = self.screen.get_size()
-        if tx + w > scr_w - self._su(8):
-            tx = self._su(mx) - self._su(16) - w
-        if ty + h > scr_h - self._su(8):
-            ty = self._su(my) - self._su(16) - h
-        tx = max(self._su(8), tx)
-        ty = max(self._su(8), ty)
-
-        panel = pygame.Surface((w, h), pygame.SRCALPHA)
-        pygame.draw.rect(panel, (15, 15, 18, 235), panel.get_rect(), border_radius=self._su(8))
-        pygame.draw.rect(panel, (82, 82, 91, 255), panel.get_rect(), 1, border_radius=self._su(8))
-        panel.blit(name_surf, (pad, pad))
-        yy = pad + name_surf.get_height() + self._su(4)
-        for line in desc_lines:
-            ls = font_body.render(line, True, (212, 212, 216))
-            panel.blit(ls, (pad, yy))
-            yy += font_body.get_height() + self._su(1)
-        panel.blit(dur_surf, (pad, yy + self._su(2)))
-        self.screen.blit(panel, (tx, ty))
 
     def _get_avatar_frame(self) -> pygame.Surface:
         """Stage 99 — return cached decorative avatar frame (border.svg style).

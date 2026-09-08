@@ -157,6 +157,9 @@ class PygameUI(
         # (×(UI_SCALE×BATTLE_WINDOW_SCALE)) + флаг активной нативной фазы.
         self._battle_native_surf: pygame.Surface | None = None
         self._native_battle_active: bool = False
+        # Stage 202 — fade-in окна боя при входе в BATTLE (MODAL_FADE_SEC,
+        # как у модалок Stage 152); 1.0 = анимация завершена/не нужна.
+        self._battle_window_fade: float = 1.0
         self._battle_bg_monitor_cache: tuple[float | None, pygame.Surface] | None = None
         # Stage 150/158 — Hi-DPI: нативный путь при ЦЕЛОЧИСЛЕННОМ масштабе
         # монитора (×2/×3 — см. compute_ui_scale). Иначе (окно 1280×720,
@@ -867,6 +870,14 @@ class PygameUI(
                 self._hud_plate_fade = min(
                     1.0, getattr(self, "_hud_plate_fade", 0.0) + dt * fade_speed
                 )
+                # Stage 202 — fade-in окна боя (тот же MODAL_FADE_SEC 0.15с,
+                # что у модалок Stage 152); применяется в _present_fullscreen
+                # (окно + рамка + затемнение), сброс в _enter_battle.
+                from pockie_rpg.config import MODAL_FADE_SEC
+                self._battle_window_fade = min(
+                    1.0, getattr(self, "_battle_window_fade", 0.0)
+                    + dt / max(0.001, MODAL_FADE_SEC)
+                )
 
             # Stage 88 — Fix 2.5: debounced autosave — flush after 0.5s of
             # inactivity following the last mark_dirty() call.
@@ -1208,8 +1219,17 @@ class PygameUI(
                 # (smoothscale 2560×1440 каждый кадр — 6мс, аудит §1.2).
                 bg = self._battle_bg_monitor(bg_src, mw, mh)
             self._fullscreen_monitor.blit(bg, (0, 0))
-            self._fullscreen_monitor.blit(
-                self._fullscreen_dim_shade((mw, mh), BATTLE_BG_DIM_ALPHA), (0, 0))
+            # Stage 202 — fade-in боя: окно + рамка + затемнение проявляются
+            # за _battle_window_fade (0→1 за MODAL_FADE_SEC); фон (снапшот
+            # карты) НЕ фейдится — это сама карта за окном.
+            fade_a = int(255 * max(0.0, min(1.0, getattr(
+                self, "_battle_window_fade", 1.0))))
+            dim = self._fullscreen_dim_shade((mw, mh), BATTLE_BG_DIM_ALPHA)
+            if fade_a < 255:
+                dim.set_alpha(fade_a)
+            self._fullscreen_monitor.blit(dim, (0, 0))
+            if fade_a < 255:
+                dim.set_alpha(255)
             win_w = int(mw * BATTLE_WINDOW_SCALE)
             win_h = int(mh * BATTLE_WINDOW_SCALE)
             win_x = (mw - win_w) // 2
@@ -1218,14 +1238,22 @@ class PygameUI(
                 # Stage 201 — НАТИВНЫЙ бой: окно блитится 1:1 (без ресемпла),
                 # legacy-слой (чар-листы) — в прямоугольник окна (layout как
                 # в legacy: модалка не вылезает за пределы боевого окна).
+                if fade_a < 255:
+                    self._battle_native_surf.set_alpha(fade_a)
                 self._fullscreen_monitor.blit(self._battle_native_surf, (win_x, win_y))
+                if fade_a < 255:
+                    self._battle_native_surf.set_alpha(255)
                 if self._legacy_layer_used:
                     lsurf = self._legacy_layer_scaled
                     if lsurf is None or lsurf.get_size() != (win_w, win_h):
                         lsurf = pygame.Surface((win_w, win_h), pygame.SRCALPHA)
                         self._legacy_layer_scaled = lsurf
                     pygame.transform.scale(self._legacy_layer, (win_w, win_h), lsurf)
+                    if fade_a < 255:
+                        lsurf.set_alpha(fade_a)
                     self._fullscreen_monitor.blit(lsurf, (win_x, win_y))
+                    if fade_a < 255:
+                        lsurf.set_alpha(255)
                 # Кадр завершён: вернуть буфер для следующего legacy-кадра.
                 self._native_battle_active = False
                 self.screen = self._fullscreen_game
@@ -1235,15 +1263,26 @@ class PygameUI(
                 window_surf = pygame.transform.smoothscale(
                     self._fullscreen_game, (win_w, win_h)
                 )
+                if fade_a < 255:
+                    window_surf.set_alpha(fade_a)
                 self._fullscreen_monitor.blit(window_surf, (win_x, win_y))
-            pygame.draw.rect(
-                self._fullscreen_monitor, (0, 0, 0),
-                (win_x - 3, win_y - 3, win_w + 6, win_h + 6), 3,
+            # Stage 202 — рамка окна боя: SRCALPHA-кэш (_static_surface),
+            # альфа = fade — рамка проявляется вместе с окном.
+            border = self._static_surface(
+                f"battle_window_border_{win_w}x{win_h}",
+                (win_w + 6, win_h + 6),
+                lambda s: (
+                    pygame.draw.rect(s, (0, 0, 0, 255), s.get_rect(), 3),
+                    pygame.draw.rect(s, (*GAME_WINDOW_BORDER, 255),
+                                     pygame.Rect(3, 3, win_w, win_h),
+                                     GAME_WINDOW_BORDER_W),
+                ),
             )
-            pygame.draw.rect(
-                self._fullscreen_monitor, GAME_WINDOW_BORDER,
-                (win_x, win_y, win_w, win_h), GAME_WINDOW_BORDER_W,
-            )
+            if fade_a < 255:
+                border.set_alpha(fade_a)
+            self._fullscreen_monitor.blit(border, (win_x - 3, win_y - 3))
+            if fade_a < 255:
+                border.set_alpha(255)
         else:
             # --- MAP и прочие: ВСЯ игра на весь монитор (без окна). ---
             # Stage 153 — если базовый экран уже отрисован НАТИВНО (прямо на
@@ -1834,6 +1873,8 @@ class PygameUI(
         self.state = GameState.BATTLE
         # Stage 200 — подложки имён появляются с fade при каждом входе в бой.
         self._hud_plate_fade = 0.0
+        # Stage 202 — окно боя появляется с fade-in (MODAL_FADE_SEC).
+        self._battle_window_fade = 0.0
 
     def _exit_battle(self) -> None:
         """Transition BATTLE -> MAP."""

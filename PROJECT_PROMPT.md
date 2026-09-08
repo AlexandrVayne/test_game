@@ -169,8 +169,9 @@ src/pockie_rpg/
     ├── assets.py                 (668)  AssetManager (LRU-кеш спрайтов, фреймов, иконок, фонтов)
     ├── effects.py                (430)  IceBlockEffect, EffectOverlay, CastEffect, ProjectileEffect
     ├── particles.py              (338)  ParticleSystem + DamageNumberSystem
+    ├── tooltip.py                 (~130)  Stage 202: единая «панель у курсора» — TooltipLine/PanelStyle/render_tooltip_panel (cursor|anchor, перенос, флип у краёв); используют тултипы статусов (render_battle) и лута (render_quick_battle)
     ├── combat_replay.py         (1068)  CombatReplayMixin — реплей боя, тайминги, применение урона
-    ├── render_battle.py         (1210)  BattleRendererMixin — экран боя (HUD, бойцы, оверлеи, endgame)
+    ├── render_battle.py         (1210)  BattleRendererMixin — экран боя (HUD, бойцы, оверлеи, endgame); Stage 202: _render_hud → 5 методов (оркестратор + _render_hud_player/_render_hud_enemy, возвращают якоря полосок + _render_hud_status_icons/_render_gauntlet_queue), тултип статуса через ui/tooltip.py
     ├── render_worldmap.py       (~560)  WorldMapRendererMixin — Stage 135: мировая карта (5 слоёв, хиттест, тултип)
     ├── scaling.py               (~285)  ScalableRendererMixin — Stage 152/153: _su/_su_font/_su_rect/_su_icon_size/_su_scaled/_su_image/_su_overlay + fade модалок; Stage 168 (аудит 5.2): _su_text (LRU-кэш отрисованного текста, кап 2048, НЕ мутировать) + _static_surface (draw-once кэш SRCALPHA-поверхностей)
     ├── render_map.py            (~910)  MapRendererMixin — MAP НАТИВНО (Hi-DPI, Stage 153) + bottom bar + enemy cards (клик по ВСЕЙ карточке открывает бой — Stage 167)
@@ -917,6 +918,11 @@ python -m py_compile config.py ui/render_battle.py ui/effects.py ui/combat_repla
   native=True сломала бы клики); чар-листы — `_legacy_layer`, накладываемый
   в прямоугольник окна; фон — снапшот сцены через кэш `_battle_bg_monitor`.
   Арена/тест-бой (F9) — legacy-путь. Детали и готчи — MEMORY (Stage 201).
+- **Fade-in окна боя (Stage 202)**: `_battle_window_fade` 0→1 за
+  `MODAL_FADE_SEC` (сброс в `_enter_battle`); в `_present_fullscreen`
+  альфу получают окно (нативный surf / legacy smoothscale), legacy-слой,
+  затемнение и рамка (SRCALPHA-кэш); фон-снапшот НЕ фейдится. set_alpha
+  на кэшированных поверхностях — сброс в 255 после blit.
 - Мигрированный рендер пишется в ДИЗАЙН-координатах и проходит через
   `self._su()` / `_su_rect()` / `_su_font()` / `_su_icon_size()` / `_su_scaled()` /
   `_su_image()` / `_su_overlay()` (`ui/scaling.ScalableRendererMixin`) + общие

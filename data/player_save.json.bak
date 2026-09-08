@@ -2,22 +2,22 @@
   "name": "Игрок",
   "suit_id": "i290001",
   "role_id": 1,
-  "level": 11,
-  "current_xp": 700,
-  "max_xp": 1100,
-  "gold": 1290,
+  "level": 12,
+  "current_xp": 0,
+  "max_xp": 1200,
+  "gold": 1485,
   "coupons": 10500,
   "defeated_mobs": [
     "mob_1",
     "mob_2",
     "mob_3"
   ],
-  "current_hp": 1860,
-  "current_mp": 500,
-  "strength": 15,
-  "agility": 23,
+  "current_hp": 1910,
+  "current_mp": 510,
+  "strength": 16,
+  "agility": 24,
   "stamina": 15,
-  "max_mp": 300,
+  "max_mp": 310,
   "active_skills": [
     12006,
     15005,
@@ -207,7 +207,7 @@
       "head_helm5",
       "head_helm6",
       "suit_ichigo",
-      "suit_ichigo",
+      null,
       "suit_ichigo",
       "suit_ichigo",
       "suit_ichigo",
@@ -333,7 +333,7 @@
       "gen_w_013",
       "gen_w_014",
       "gen_w_015",
-      null,
+      "gen_w_016",
       null,
       null,
       null,
@@ -1398,6 +1398,16 @@
       "id": "gem_8",
       "type": "gem_red",
       "level": 1
+    },
+    {
+      "id": "gem_9",
+      "type": "gem_red",
+      "level": 1
+    },
+    {
+      "id": "gem_10",
+      "type": "gem_blue",
+      "level": 1
     }
   ],
   "gear_gem_slots": {
@@ -1442,7 +1452,7 @@
       null
     ]
   },
-  "_gem_id_counter": 8,
+  "_gem_id_counter": 10,
   "active_title": "legend",
   "world_boss_attempts": 3,
   "world_boss_next_attempt_ts": null,
@@ -1460,7 +1470,7 @@
   "tower_shards": 0,
   "tower_pending_xp": 0,
   "daily_quest_progress": {
-    "kill_mobs": 24
+    "kill_mobs": 28
   },
   "daily_quest_claimed": [],
   "daily_quest_date": "2026-09-08",
@@ -1713,12 +1723,28 @@
       "generated": true,
       "template_id": "vest_ninja",
       "item_type": "armor"
+    },
+    "gen_w_016": {
+      "name": "Булава новичка [Blue]",
+      "slot": "weapon",
+      "item_level": 5,
+      "level_requirement": 5,
+      "rarity": "Blue",
+      "stats": {
+        "min_atk": 7,
+        "max_atk": 13,
+        "block_pct": 1
+      },
+      "icon_filename": "weapon_blunt2.gif",
+      "sell_price": 140,
+      "generated": true,
+      "template_id": "weapon_blunt2"
     }
   },
-  "gen_w_counter": 15,
-  "_str_accum": 15.999999999999996,
-  "_agi_accum": 23.500000000000007,
-  "_sta_accum": 15.0,
+  "gen_w_counter": 16,
+  "_str_accum": 16.599999999999998,
+  "_agi_accum": 24.85000000000001,
+  "_sta_accum": 15.5,
   "slot_next_roll_ts": null,
   "outfit_instances": {},
   "_outfit_inst_counter": 0,
@@ -1750,7 +1776,16 @@
     null
   ],
   "active_buffs": [],
-  "window_positions": {},
+  "window_positions": {
+    "synth": [
+      150,
+      229
+    ],
+    "inventory": [
+      705,
+      105
+    ]
+  },
   "synth_test_grant_v160": true,
   "story_quests_active": [],
   "story_quests_goal_done": [],

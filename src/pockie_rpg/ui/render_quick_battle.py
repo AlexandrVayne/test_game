@@ -16,6 +16,7 @@ import pygame
 
 from pockie_rpg.config import RARITY_RGB, RARITY_SLOT_BG, SCREEN_HEIGHT, SCREEN_WIDTH
 from pockie_rpg.ui.animator import ClickRect
+from pockie_rpg.ui.tooltip import PanelStyle, TooltipLine, render_tooltip_panel
 
 
 class QuickBattleRendererMixin:
@@ -256,55 +257,31 @@ class QuickBattleRendererMixin:
                             rarity: str, text: str = "", lines: list | None = None) -> None:
         """Unified loot tooltip renderer.
 
-        If `lines` is provided, renders a multiline rich tooltip (each line is
-        a (text, color) tuple). If only `text` is provided, renders a single-line
-        tooltip. The positioning logic (above slot, clamped to screen) is shared.
-
-        Stage 201 — slot_x/slot_y/slot_sz — ДИЗАЙН-координаты; тултип
-        рисуется ×_su с шрифтами _su_font.
+        Stage 202 — через единый хелпер ui/tooltip.py («панель у курсора»):
+        общие паддинги/рамка/флип/кламп с тултипом статусов. Панель по
+        центру НАД слотом, при нехватке места — ПОД ним, кламп к экрану.
+        `lines` — multiline rich tooltip (каждая строка (text, color),
+        рамка/акцент цвета редкости); `text` — однострочный простой.
         """
         rarity_color = RARITY_RGB.get(rarity, (234, 179, 8))
-        font = self._su_font(13)
-        line_h = font.get_height() + self._su(2)
-
         if lines:
-            rendered = []
-            max_w = 0
-            for ln_text, ln_color in lines:
-                surf = font.render(ln_text, True, ln_color)
-                rendered.append(surf)
-                if surf.get_width() > max_w:
-                    max_w = surf.get_width()
-            tip_w = max_w + self._su(16)
-            tip_h = line_h * len(rendered) + self._su(8)
-            border_w = self._su(2)
-            accent_h = self._su(3)
+            tl = [
+                TooltipLine(ln_text, ln_color, size=13,
+                            space_before=(2 if i else 0))
+                for i, (ln_text, ln_color) in enumerate(lines)
+            ]
+            style = PanelStyle(bg=(15, 15, 18, 255), border=rarity_color,
+                               border_w=2, radius=6, pad_x=8, pad_y=4,
+                               accent=rarity_color)
         else:
-            text_surf = font.render(text, True, (255, 255, 255))
-            rendered = [text_surf]
-            tip_w = text_surf.get_width() + self._su(12)
-            tip_h = text_surf.get_height() + self._su(6)
-            border_w = 1
-            accent_h = 0
-
-        tx = self._su(slot_x) + self._su(slot_sz) // 2 - tip_w // 2
-        ty = self._su(slot_y) - tip_h - self._su(6)
-        if ty < self._su(4):
-            ty = self._su(slot_y) + self._su(slot_sz) + self._su(6)
-        if tx < self._su(4):
-            tx = self._su(4)
-        scr_w = self.screen.get_width()
-        if tx + tip_w > scr_w - self._su(4):
-            tx = scr_w - tip_w - self._su(4)
-
-        tip_rect = pygame.Rect(tx, ty, tip_w, tip_h)
-        pygame.draw.rect(self.screen, (15, 15, 18), tip_rect, border_radius=self._su(6))
-        pygame.draw.rect(self.screen, rarity_color, tip_rect, border_w, border_radius=self._su(6))
-        if accent_h > 0:
-            pygame.draw.rect(self.screen, rarity_color,
-                             pygame.Rect(tx, ty, tip_w, accent_h), border_radius=self._su(2))
-        for i, surf in enumerate(rendered):
-            self.screen.blit(surf, (tx + self._su(8), ty + self._su(4) + i * line_h))
+            tl = [TooltipLine(text, (255, 255, 255), size=13)]
+            style = PanelStyle(bg=(15, 15, 18, 255), border=rarity_color,
+                               border_w=1, radius=6, pad_x=6, pad_y=3)
+        render_tooltip_panel(
+            self, tl,
+            anchor=pygame.Rect(slot_x, slot_y, slot_sz, slot_sz),
+            style=style, margin=4,
+        )
 
     # ------------------------------------------------------------------
     # Stage 114 — REDESIGNED RESULT MODAL WITH LOOT GRID

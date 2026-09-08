@@ -3,9 +3,9 @@
   "suit_id": "i290001",
   "role_id": 1,
   "level": 11,
-  "current_xp": 400,
+  "current_xp": 1000,
   "max_xp": 1100,
-  "gold": 1145,
+  "gold": 1435,
   "coupons": 10500,
   "defeated_mobs": [
     "mob_1",
@@ -333,7 +333,7 @@
       "gen_w_013",
       "gen_w_014",
       "gen_w_015",
-      null,
+      "gen_w_016",
       null,
       null,
       null,
@@ -1398,6 +1398,11 @@
       "id": "gem_8",
       "type": "gem_red",
       "level": 1
+    },
+    {
+      "id": "gem_9",
+      "type": "gem_red",
+      "level": 1
     }
   ],
   "gear_gem_slots": {
@@ -1442,7 +1447,7 @@
       null
     ]
   },
-  "_gem_id_counter": 8,
+  "_gem_id_counter": 9,
   "active_title": "legend",
   "world_boss_attempts": 3,
   "world_boss_next_attempt_ts": null,
@@ -1460,7 +1465,7 @@
   "tower_shards": 0,
   "tower_pending_xp": 0,
   "daily_quest_progress": {
-    "kill_mobs": 22
+    "kill_mobs": 26
   },
   "daily_quest_claimed": [],
   "daily_quest_date": "2026-09-08",
@@ -1713,9 +1718,25 @@
       "generated": true,
       "template_id": "vest_ninja",
       "item_type": "armor"
+    },
+    "gen_w_016": {
+      "name": "Булава новичка [Blue]",
+      "slot": "weapon",
+      "item_level": 5,
+      "level_requirement": 5,
+      "rarity": "Blue",
+      "stats": {
+        "min_atk": 7,
+        "max_atk": 13,
+        "block_pct": 1
+      },
+      "icon_filename": "weapon_blunt2.gif",
+      "sell_price": 140,
+      "generated": true,
+      "template_id": "weapon_blunt2"
     }
   },
-  "gen_w_counter": 15,
+  "gen_w_counter": 16,
   "_str_accum": 15.999999999999996,
   "_agi_accum": 23.500000000000007,
   "_sta_accum": 15.0,

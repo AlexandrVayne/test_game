@@ -357,11 +357,15 @@ class DamageNumberSystem:
             text_surf = font.render(n.text, True, n.color)
             text_surf.set_alpha(alpha)
             # Stage 97 — scale during flash phase (pulsing effect).
+            # Stage 202 — ГОТЧА: пульс-масштаб НЕЛЬЗЯ писать в `scale` — это
+            # параметр рендера (×render_scale); перезапись искажала позиции
+            # и размеры шрифта ВСЕХ последующих чисел в кадре (позиция
+            # считалась n.x × пульс вместо n.x × render_scale).
             if n.is_flashing:
-                scale = n.scale
-                if scale != 1.0:
-                    sw = max(1, int(text_surf.get_width() * scale))
-                    sh = max(1, int(text_surf.get_height() * scale))
+                pulse = n.scale
+                if pulse != 1.0:
+                    sw = max(1, int(text_surf.get_width() * pulse))
+                    sh = max(1, int(text_surf.get_height() * pulse))
                     text_surf = pygame.transform.smoothscale(text_surf, (sw, sh))
             text_rect = text_surf.get_rect(
                 center=(int(n.x * scale), int(n.y * scale))
