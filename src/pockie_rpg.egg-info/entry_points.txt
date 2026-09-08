@@ -1,0 +1,2 @@
+[console_scripts]
+pockie-rpg = pockie_rpg.main:main

@@ -1,0 +1,171 @@
+{
+ "schema_version": "5.0",
+ "generated_at": "2025-08-17T05:55:00Z",
+ "stage": "Stage 177 — Black Samurai (role 10004) full re-extraction from user SWFs (FFDec 22.0.2 `-export sprite`)",
+ "summary": {
+  "total_animation_folders": 13,
+  "total_png_frames": 168,
+  "ichigo_animations": 7,
+  "samurai_animations": 6,
+  "naming_convention": "<character>_<action>[_<variant>]",
+  "stage_6_features": [
+   "5 new enemy (samurai) animations extracted: attack, run, hit, death_fall, death_floor",
+   "Enemy no longer falls back to samurai_idle for attack/run/hit/death — uses proper folders",
+   "ENEMY_ACTION_NAME_MAP: generic 'death' → 'death_fall' (animated fall phase)",
+   "SAMURAI_ACTIONS mapping (action_id → folder) added to config.py",
+   "Hit reaction for enemy now uses samurai_hit animation (not just shake)",
+   "Death sequence: death_fall (10 frames) → freeze on last frame (lying pose)",
+   "VLM-verified: enemy hit pose, attack pose, death pose all confirmed correct"
+  ]
+ },
+ "samurai_animations": [
+  {
+   "folder": "samurai_idle",
+   "action_name": "idle",
+   "action_id": 1,
+   "frame_count": 8,
+   "frame_size": {
+    "w": 92,
+    "h": 110
+   },
+   "intrinsic_facing": "LEFT",
+   "flip_for_enemy": false,
+   "source": "user-Stage1",
+   "old_name": "motion_10001_1"
+  },
+  {
+   "folder": "samurai_hit",
+   "action_name": "hit",
+   "action_id": 4,
+   "frame_count": 4,
+   "frame_size": {
+    "w": 135,
+    "h": 123
+   },
+   "intrinsic_facing": "LEFT",
+   "flip_for_enemy": false,
+   "source": "user (Stage 6)",
+   "old_name": "motion_10001_4",
+   "vlm_verification": "crouching/landing hit reaction pose, faces LEFT ✅"
+  },
+  {
+   "folder": "samurai_attack",
+   "action_name": "attack",
+   "action_id": 52,
+   "frame_count": 12,
+   "frame_size": {
+    "w": 128,
+    "h": 110
+   },
+   "intrinsic_facing": "LEFT",
+   "flip_for_enemy": false,
+   "source": "user (Stage 6)",
+   "old_name": "motion_10001_52",
+   "vlm_verification": "sword slash animation, faces LEFT ✅"
+  },
+  {
+   "folder": "samurai_run",
+   "action_name": "run",
+   "action_id": 55,
+   "frame_count": 4,
+   "frame_size": {
+    "w": 105,
+    "h": 115
+   },
+   "intrinsic_facing": "LEFT",
+   "flip_for_enemy": false,
+   "source": "user (Stage 6)",
+   "old_name": "motion_10001_55",
+   "vlm_verification": "run cycle (contact/passing/high point/descent), faces LEFT ✅"
+  },
+  {
+   "folder": "samurai_death_fall",
+   "action_name": "death_fall",
+   "action_id": 57,
+   "frame_count": 10,
+   "frame_size": {
+    "w": 125,
+    "h": 133
+   },
+   "intrinsic_facing": "LEFT",
+   "flip_for_enemy": false,
+   "source": "user (Stage 6)",
+   "old_name": "motion_10001_57",
+   "vlm_verification": "knockdown + fall (airborne rotation → lands on front → lies prone) ✅",
+   "user_description": "получил урон и упал (took damage and fell)"
+  },
+  {
+   "folder": "samurai_death_floor",
+   "action_name": "death_floor",
+   "action_id": 100,
+   "frame_count": 2,
+   "frame_size": {
+    "w": 120,
+    "h": 55
+   },
+   "intrinsic_facing": "LEFT",
+   "flip_for_enemy": false,
+   "source": "user (Stage 6)",
+   "old_name": "motion_10001_100",
+   "vlm_verification": "lying on floor (defeated pose, horizontal) ✅",
+   "user_description": "лежит на полу (lying on floor)",
+   "note": "2-frame loop — used as the final death pose after death_fall completes"
+  }
+ ],
+ "death_sequence_logic": {
+  "stage_6": "When enemy dies, animator switches to 'death' action → ENEMY_ACTION_NAME_MAP maps 'death' → 'death_fall' → samurai_death_fall folder (10 frames). After playing once, freezes on last frame (lying pose). samurai_death_floor folder available as separate 'death_floor' action if needed for extended death poses."
+ },
+ "facing_rule": {
+  "rule": "ALL enemies face LEFT in battle; player ALWAYS faces RIGHT (default idle state)",
+  "exception": "During AttackSequence RUN_BACK phase, attacker flips to face back toward start",
+  "enemy_animations": "All 6 samurai animations are LEFT-facing (intrinsic LEFT → flip=False for enemy)",
+  "death_animations": "Horizontal poses (death_fall, death_floor) — facing is ambiguous but marked LEFT for consistency"
+ },
+ "naming_rule": {
+  "pattern": "<character>_<action>[_<variant>]",
+  "applies_to": "ALL animation folders",
+  "enforced_in": "config.py ICHIGO_ACTIONS + SAMURAI_ACTIONS mappings + docstrings"
+ },
+ "black_samurai_animations": [
+  {
+   "folder": "black_samurai/idle",
+   "action_name": "idle",
+   "action_id": 999,
+   "frame_count": 7,
+   "source_swf": "motion_10004_999.s117.swf"
+  },
+  {
+   "folder": "black_samurai/attack",
+   "action_name": "attack",
+   "action_id": 52,
+   "frame_count": 13,
+   "source_swf": "motion_10004_52.s117.swf"
+  },
+  {
+   "folder": "black_samurai/run",
+   "action_name": "run",
+   "action_id": 55,
+   "frame_count": 4,
+   "source_swf": "motion_10004_55.s117.swf"
+  },
+  {
+   "folder": "black_samurai/death_fall",
+   "action_name": "death_fall",
+   "action_id": 57,
+   "frame_count": 10,
+   "source_swf": "motion_10004_57.s117.swf"
+  },
+  {
+   "folder": "black_samurai/hit",
+   "action_name": "hit",
+   "action_id": 64,
+   "frame_count": 8,
+   "source_swf": "motion_10004_64.s117.swf"
+  }
+ ],
+ "black_samurai_notes": [
+  "Stage 177: старые кадры были выцветшими/полупрозрачными (битая экстракция DefineBitsJPEG3).",
+  "Новый пайплайн: JPEXS FFDec 22.0.2, `-export sprite` — рендер кадров DefineSprite в ЕДИНОМ холсте каждого экшена, корректная альфа и цвет.",
+  "ID действий = суффиксам имён SWF (999=idle, 52=attack)."
+ ]
+}

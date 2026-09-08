@@ -1,0 +1,5 @@
+pygame-ce>=2.4
+
+[dev]
+ruff>=0.6
+build>=1

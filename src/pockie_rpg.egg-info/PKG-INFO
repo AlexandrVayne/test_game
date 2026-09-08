@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: pockie-rpg
+Version: 0.1.0
+Summary: Pockie RPG — local 2D autobattler inspired by Pockie Ninja (pygame-ce).
+Requires-Python: >=3.11
+Requires-Dist: pygame-ce>=2.4
+Provides-Extra: dev
+Requires-Dist: ruff>=0.6; extra == "dev"
+Requires-Dist: build>=1; extra == "dev"
