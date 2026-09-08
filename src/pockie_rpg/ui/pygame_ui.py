@@ -153,6 +153,11 @@ class PygameUI(
         )
         self._legacy_layer_scaled: pygame.Surface | None = None
         self._legacy_layer_used: bool = False
+        # Stage 201 — нативный Hi-DPI бой: offscreen-поверхность окна боя
+        # (×(UI_SCALE×BATTLE_WINDOW_SCALE)) + флаг активной нативной фазы.
+        self._battle_native_surf: pygame.Surface | None = None
+        self._native_battle_active: bool = False
+        self._battle_bg_monitor_cache: tuple[float | None, pygame.Surface] | None = None
         # Stage 150/158 — Hi-DPI: нативный путь при ЦЕЛОЧИСЛЕННОМ масштабе
         # монитора (×2/×3 — см. compute_ui_scale). Иначе (окно 1280×720,
         # дробные разрешения типа 2048×1152 от Windows 125% без DPI-aware)
@@ -1023,11 +1028,19 @@ class PygameUI(
                     if self._endgame_active:
                         self._render_endgame()
             elif self.state == GameState.BATTLE:
+                # Stage 201 — нативный Hi-DPI бой: окно боя рисуется в
+                # offscreen-поверхность ×(UI_SCALE×BATTLE_WINDOW_SCALE) и
+                # блитится в _present_fullscreen 1:1 (без ресемпла мыла).
+                battle_native = self._begin_native_battle_frame()
                 self._render_battle()
                 if self._countdown_active:
                     self._render_countdown()
                 if self._endgame_active:
                     self._render_endgame()
+                if battle_native:
+                    self._end_native_battle_frame()
+                # Чар-листы — legacy-модалки (design-координаты): в нативном
+                # кадре попадают в _legacy_layer (окно боя, см. present).
                 if self._char_sheet_open:
                     self._render_modal_scaled(self._render_char_sheet)
                 if self._char_sheet2_open:
@@ -1102,6 +1115,7 @@ class PygameUI(
             f"native path: {'ON' if native_on else 'off'}  registry={sorted(NATIVE_MODAL_REGISTRY)}",
             # Stage 153 — базовый экран нативно + слой legacy-модалок.
             f"native base: {'ON' if getattr(self, '_native_base_active', False) else 'off'}"
+            f"  battle native: {'ON' if getattr(self, '_native_battle_active', False) else 'off'}"
             f"  legacy layer: {'used' if self._legacy_layer_used else 'idle'}",
             f"ClickRects: {total_rects} (native {native_rects})",
             f"state={self.state.name}  loc={self._map_location.name}  mode={self._battle_mode.name}",
@@ -1190,7 +1204,9 @@ class PygameUI(
             if bg_src.get_size() == (mw, mh):
                 bg = bg_src
             else:
-                bg = pygame.transform.smoothscale(bg_src, (mw, mh))
+                # Stage 201 — кэш масштаба фона по свежести снапшота
+                # (smoothscale 2560×1440 каждый кадр — 6мс, аудит §1.2).
+                bg = self._battle_bg_monitor(bg_src, mw, mh)
             self._fullscreen_monitor.blit(bg, (0, 0))
             self._fullscreen_monitor.blit(
                 self._fullscreen_dim_shade((mw, mh), BATTLE_BG_DIM_ALPHA), (0, 0))
@@ -1198,10 +1214,28 @@ class PygameUI(
             win_h = int(mh * BATTLE_WINDOW_SCALE)
             win_x = (mw - win_w) // 2
             win_y = (mh - win_h) // 2
-            window_surf = pygame.transform.smoothscale(
-                self._fullscreen_game, (win_w, win_h)
-            )
-            self._fullscreen_monitor.blit(window_surf, (win_x, win_y))
+            if getattr(self, "_native_battle_active", False) and self.state == GameState.BATTLE:
+                # Stage 201 — НАТИВНЫЙ бой: окно блитится 1:1 (без ресемпла),
+                # legacy-слой (чар-листы) — в прямоугольник окна (layout как
+                # в legacy: модалка не вылезает за пределы боевого окна).
+                self._fullscreen_monitor.blit(self._battle_native_surf, (win_x, win_y))
+                if self._legacy_layer_used:
+                    lsurf = self._legacy_layer_scaled
+                    if lsurf is None or lsurf.get_size() != (win_w, win_h):
+                        lsurf = pygame.Surface((win_w, win_h), pygame.SRCALPHA)
+                        self._legacy_layer_scaled = lsurf
+                    pygame.transform.scale(self._legacy_layer, (win_w, win_h), lsurf)
+                    self._fullscreen_monitor.blit(lsurf, (win_x, win_y))
+                # Кадр завершён: вернуть буфер для следующего legacy-кадра.
+                self._native_battle_active = False
+                self.screen = self._fullscreen_game
+                self._render_scale = 1.0
+                self._legacy_layer_used = False
+            else:
+                window_surf = pygame.transform.smoothscale(
+                    self._fullscreen_game, (win_w, win_h)
+                )
+                self._fullscreen_monitor.blit(window_surf, (win_x, win_y))
             pygame.draw.rect(
                 self._fullscreen_monitor, (0, 0, 0),
                 (win_x - 3, win_y - 3, win_w + 6, win_h + 6), 3,
@@ -1317,6 +1351,87 @@ class PygameUI(
         self._legacy_layer.fill((0, 0, 0, 0))
         self.screen = self._legacy_layer
         self._legacy_layer_used = True
+
+    def _native_battle_will_render(self) -> bool:
+        """Stage 201 — рисуется ли бой в этом кадре НАТИВНО (Hi-DPI окно).
+
+        Условия: монитор + целочисленный ui_scale > 1 (как у MAP, Stage 153),
+        состояние BATTLE (TEST_BATTLE остаётся legacy — dev-режим F9) и
+        "battle" в NATIVE_MODAL_REGISTRY.
+        """
+        if self._fullscreen_monitor is None or self._ui_scale <= 1.0:
+            return False
+        if self.state != GameState.BATTLE:
+            return False
+        return "battle" in NATIVE_MODAL_REGISTRY
+
+    def _begin_native_battle_frame(self) -> bool:
+        """Stage 201 — начать кадр боя в нативной поверхности ОКНА боя.
+
+        В отличие от MAP-пары (Stage 153/159): контент боя рисуется в
+        offscreen-поверхность размером с ОКНО (монитор ×BATTLE_WINDOW_SCALE)
+        со scale = UI_SCALE × BATTLE_WINDOW_SCALE (2К: 2.0×0.6 = 1.2) —
+        так окно боя заполняется 1:1 нативными пикселями БЕЗ ресемпла.
+        `_mouse_pos` НЕ трогается: мышь боя ремапится `_map_battle_mouse`
+        в дизайн-координаты окна независимо от рендера. Вызывающий обязан
+        после рендера боя (+countdown/endgame) вызвать
+        `_end_native_battle_frame()`.
+
+        False — legacy-кадр (рендер в буфер 1280×720, композит как раньше).
+        """
+        self._native_battle_active = False
+        if not self._native_battle_will_render():
+            return False
+        from pockie_rpg.config import BATTLE_WINDOW_SCALE
+        mw, mh = self._fullscreen_monitor.get_size()
+        win_w = int(mw * BATTLE_WINDOW_SCALE)
+        win_h = int(mh * BATTLE_WINDOW_SCALE)
+        surf = self._battle_native_surf
+        if surf is None or surf.get_size() != (win_w, win_h):
+            surf = pygame.Surface((win_w, win_h))
+            self._battle_native_surf = surf
+        self._native_battle_saved = (self.screen, self._render_scale)
+        self.screen = surf
+        self._render_scale = self._ui_scale * BATTLE_WINDOW_SCALE
+        self._native_battle_active = True
+        return True
+
+    def _end_native_battle_frame(self) -> None:
+        """Stage 201 — контент боя готов; немигрированные модалки боя
+        (чар-листы через _render_modal_scaled) рисуются в прозрачный
+        legacy-слой, который _present_fullscreen накладывает В ПРЯМОУГОЛЬНИК
+        ОКНА боя (layout как в legacy — модалка не вылезает за окно).
+
+        ВАЖНО (отличие от _end_native_base_screen): ClickRect'ы боя НЕ
+        помечаются native=True — они зарегистрированы в ДИЗАЙН-координатах,
+        и хиттест сравнивает их с дизайн-позицией мыши от
+        `_map_battle_mouse` (маркировка ×UI_SCALE сломала бы клики).
+        """
+        if not self._native_battle_active:
+            return
+        self._render_scale = 1.0
+        self._legacy_layer.fill((0, 0, 0, 0))
+        self.screen = self._legacy_layer
+        self._legacy_layer_used = True
+
+    def _battle_bg_monitor(self, bg_src: pygame.Surface,
+                           mw: int, mh: int) -> pygame.Surface:
+        """Stage 201 — снапшот 1280×720 → размер монитора, кэш по свежести.
+
+        Аудит §1.2 (foundation report): smoothscale полноэкранного фона
+        КАЖДЫЙ кадр — до 6мс; снапшот обновляется раз в BATTLE_BG_REFRESH_SEC
+        (0.25с) — масштабируем только после обновления (по метке времени).
+        """
+        if bg_src.get_size() == (mw, mh):
+            return bg_src
+        ts = getattr(self, "_battle_bg_refresh_ts", None)
+        cached = self._battle_bg_monitor_cache
+        if (cached is not None and cached[0] == ts
+                and cached[1].get_size() == (mw, mh)):
+            return cached[1]
+        scaled = pygame.transform.smoothscale(bg_src, (mw, mh))
+        self._battle_bg_monitor_cache = (ts, scaled)
+        return scaled
 
     def _native_overlays_will_render(self) -> bool:
         """Stage 150 — отрисуется ли в этом кадре хоть одна нативная модалка.

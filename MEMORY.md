@@ -5,7 +5,46 @@
 > история stage'ей (ЕДИНСТВЕННЫЙ таймлайн — нигде не дублируется), готчи,
 > баги, константы, реестр идей, TODO.
 
-## Текущая версия: **v200.0**
+## Текущая версия: **v201.0**
+
+**Stage 201 — нативный Hi-DPI бой (последний legacy-экран мигрирован):**
+- **Масштаб окна боя** = UI_SCALE × BATTLE_WINDOW_SCALE (2К: 2.0×0.6 = **1.2**):
+  контент боя рисуется в offscreen-поверхность РАЗМЕРА ОКНА (1536×864) и
+  блитится на монитор 1:1 (БЕЗ smoothscale) — текст/полоски/иконки чёткие,
+  layout окна 60% не изменился. `_begin/_end_native_battle_frame()` —
+  СВОЯ пара (pygame_ui), не путать с MAP-парой Stage 153.
+- **ClickRect'ы боя остались ДИЗАЙН-координатами (native=False)** — критичное
+  отличие от MAP: мышь боя ремапится `_map_battle_mouse` в дизайн-пространство
+  окна ДО хиттеста, а `_click_rect_hit` для native=True умножает позицию на
+  `_ui_scale` (2.0) — маркировка сломала бы все клики боя (баннеры, скорость,
+  endgame_ok). `_end_native_base_screen` (маркировку) к бою НЕ применять.
+- **Чар-листы в бою** (legacy-модалки) рисуются в `_legacy_layer` и
+  накладываются в прямоугольник ОКНА боя (scale legacy_layer → win_w×win_h) —
+  layout как в v200 (модалка не вылезает за окно).
+- **render_battle.py полностью на _su/_su_font** (фон `_su_scaled`, аватары
+  нативных размеров, спрайты через `get_motion_sprite(×_su размеры)` — кэш
+  asset_manager по размеру; тень/кольцо/блик/shine — `_static_surface` с
+  размером в ключе). Модульные `_FONT_*` удалены (7 шт.); `pygame.font.init()`
+  в шапке render_battle ОСТАВЛЕН — load-bearing для модульных шрифтов
+  render_worldmap (порядок импортов).
+- **effects/particles**: render(..., scale=1.0) — позиции/размеры эффектов и
+  частиц, размер шрифта цифр урона ×scale при отрисовке (состояние в дизайн-
+  единицах, как и анимация AttackSequence — combat_replay НЕ тронут: в нём
+  нет ни одного draw-вызова).
+- **Фон боя (аудит §1.2)**: smoothscale снапшота 1280×720 → монитор вынесен
+  в кэш `_battle_bg_monitor` (по метке BATTLE_BG_REFRESH_SEC) — было каждый
+  кадр (~6мс), стало раз в 0.25с. Замер: native 9.06 мс/кадр vs legacy 8.97
+  (+0.09 — паритет, при 1.44× пикселей и чётком тексте).
+- **verify_battle_native.py** (18 чеков): scale=1.2, окно 1536×864, мышь в
+  дизайн-пространстве, 7 ClickRect'ов design+живые, ховеры, композит 1:1,
+  endgame text+rewards в нативе, legacy-путь при отсутствии "battle" в
+  реестре. Регресс: diag_replay_flow 10/10, diag_click_offset (0 dead),
+  diag_e2e_clicks, diag_window_drag, diag_drag_ghost, diag_battle_bg,
+  hidpi_smoke (forge/inventory/map) — ALL PASS; py_compile, ruff 0.
+  diag_stage161.py удалён (API Stage 161 удалён в v162).
+- Витрина: pockie_rpg_v201.0.zip.
+
+## Предыдущая версия: v200.0
 
 **Stage 200 — HUD_THEME; вертикальное центрирование текста в подложке;
 более видимый текст; fade-in подложки:**
@@ -674,6 +713,13 @@ _drop_shadow; стеклянный блик полосок:**
 
 ## История Stage'ей (ЕДИНСТВЕННЫЙ таймлайн — от новых к старым)
 
+- **Stage 201 (v201.0)** — нативный Hi-DPI бой: окно боя рисуется ×(UI_SCALE×
+  BATTLE_WINDOW_SCALE=1.2) в offscreen-поверхность окна, композит 1:1 без
+  ресемпла; ClickRect'ы боя — ДИЗАЙН (мышь ремапится _map_battle_mouse);
+  чар-листы — legacy-слой в прямоугольнике окна; render_battle на _su/_su_font
+  (модульные _FONT_* удалены), effects/particles — scale-параметр, спрайты —
+  get_motion_sprite нативного размера; фон боя — кэш масштаба снапшота
+  (аудит §1.2); combat_replay не тронут (0 draw-вызовов).
 - **Stage 200 (v200.0)** — HUD_THEME (цвета подложек/текста в одном
   словаре); вертикальное центрирование имени+уровня в подложке; текст
   ярче (белый/yellow-300) + рамка; fade-in подложки с боем (0.4с).
@@ -1205,6 +1251,17 @@ _drop_shadow; стеклянный блик полосок:**
   ЗАПРЕЩЁН (см. RULES.md §Hi-DPI); хиттест вне ClickRect-диспетчера — is_native +
   ×_ui_scale; снапшоты фреймбуфера ЗАПРЕЩЕНЫ (буфер не обновляется нативно) —
   фон боя из ассета (`_capture_battle_bg_snapshot`).
+- **Нативный бой (Stage 201) ≠ MAP-нативный путь**: своя begin/end пара
+  (`_begin/_end_native_battle_frame`); контент — в offscreen-поверхность ОКНА
+  (монитор ×BATTLE_WINDOW_SCALE) со scale = UI_SCALE×BATTLE_WINDOW_SCALE;
+  ClickRect'ы боя НЕ помечаются native=True (мышь боя в дизайн-координатах
+  окна через `_map_battle_mouse`, а `_click_rect_hit` для native=True множит
+  на `_ui_scale` — клики уехали бы); `_mouse_pos` begin'ом НЕ масштабируется;
+  legacy-модалки боя (чар-листы) — `_legacy_layer`, накладываемый В ОКНО
+  (scale до win_w×win_h), НЕ на весь монитор; `_present_fullscreen` сбрасывает
+  `_native_battle_active` и возвращает `self.screen = _fullscreen_game`.
+  `pygame.font.init()` в шапке render_battle — load-bearing (модульные шрифты
+  render_worldmap): не удалять, пока такие шрифты существуют.
 - **Drag-призрак (Stage 160)**: `_render_drag_ghost(draw_fn, w, h)` — SRCALPHA-буфер
   + set_alpha(DRAG_GHOST_ALPHA=160), верхний левый угол в `_mouse_pos` (кончик
   курсора); рамка ПОСЛЕ иконки (rarity-подложка непрозрачна).
@@ -1314,6 +1371,18 @@ _drop_shadow; стеклянный блик полосок:**
 > Фокус на Локации 1 — сначала статы/уровни/шмот. НЕ предлагать как «новые».
 
 ### Открытые идеи
+
+**Нативный бой / Hi-DPI (Stage 201)**
+- [ ] ⚡ render_worldmap: последние модульные шрифты `_F_WM_*` → _su_font —
+      тогда pygame.font.init()-костыль в render_battle можно снять.
+- [ ] ⚡ Плавное появление окна боя (fade-in 0.15с как у инвентаря, Stage 152):
+      alpha-блит окна боя в present по таймеру входа в бой.
+- [ ] 💡 `_render_hud` разросся до ~320 строк — разбить на _render_hud_player /
+      _render_hud_enemy (симметричные половины) + общий _render_name_plate.
+- [ ] 💡 Тултип статуса и лут-тултип — единый «рисованную панель у курсора»
+      хелпер (общие паддинги/рамка/флип; уже 2 реализации с _su).
+- [ ] 💡 Аудит §1.2 п.5: smoothscale → scale в present-ветке legacy боя
+      (не-2К окна) — визуальная проверка на мониторе перед включением.
 
 **Геймплей / контент (Stage 177)**
 - [ ] 🔥 Проб/А.Блок у мобов всегда 0 — дать элитным мобам (боссы Лас Ночеса,

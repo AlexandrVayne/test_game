@@ -3,9 +3,9 @@
   "suit_id": "i290001",
   "role_id": 1,
   "level": 11,
-  "current_xp": 250,
+  "current_xp": 400,
   "max_xp": 1100,
-  "gold": 1070,
+  "gold": 1145,
   "coupons": 10500,
   "defeated_mobs": [
     "mob_1",
@@ -332,7 +332,7 @@
       "gen_w_012",
       "gen_w_013",
       "gen_w_014",
-      null,
+      "gen_w_015",
       null,
       null,
       null,
@@ -1393,6 +1393,11 @@
       "id": "gem_7",
       "type": "gem_green",
       "level": 1
+    },
+    {
+      "id": "gem_8",
+      "type": "gem_red",
+      "level": 1
     }
   ],
   "gear_gem_slots": {
@@ -1437,7 +1442,7 @@
       null
     ]
   },
-  "_gem_id_counter": 7,
+  "_gem_id_counter": 8,
   "active_title": "legend",
   "world_boss_attempts": 3,
   "world_boss_next_attempt_ts": null,
@@ -1455,7 +1460,7 @@
   "tower_shards": 0,
   "tower_pending_xp": 0,
   "daily_quest_progress": {
-    "kill_mobs": 19
+    "kill_mobs": 22
   },
   "daily_quest_claimed": [],
   "daily_quest_date": "2026-09-08",
@@ -1691,9 +1696,26 @@
       "generated": true,
       "template_id": "boots_shoes2",
       "item_type": "boots"
+    },
+    "gen_w_015": {
+      "name": "Жилет ниндзя [Blue]",
+      "slot": "body",
+      "item_level": 1,
+      "level_requirement": 1,
+      "rarity": "Blue",
+      "stats": {
+        "defense": 5,
+        "max_hp": 15,
+        "hit_rating": 1
+      },
+      "icon_filename": "vest_ninja.png",
+      "sell_price": 100,
+      "generated": true,
+      "template_id": "vest_ninja",
+      "item_type": "armor"
     }
   },
-  "gen_w_counter": 14,
+  "gen_w_counter": 15,
   "_str_accum": 15.999999999999996,
   "_agi_accum": 23.500000000000007,
   "_sta_accum": 15.0,

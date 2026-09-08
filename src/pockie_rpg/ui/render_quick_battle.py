@@ -204,38 +204,46 @@ class QuickBattleRendererMixin:
               takes precedence over `tooltip_text`. Lines render top-to-bottom.
               Header line (item name) uses the rarity color border. Stat lines use
               their own colors (green for main stats, blue for secondary).
+
+        Stage 201 — x/y/sz приходят в ДИЗАЙН-координатах; ховер — по
+        дизайн-ректу (мышь в дизайн-пространстве), отрисовка — ×_su.
         """
         rect = pygame.Rect(x, y, sz, sz)
         is_hover = rect.collidepoint(self._mouse_pos)
+        draw_rect = self._su_rect(x, y, sz, sz)
 
         # Rarity background.
         bg_color = RARITY_SLOT_BG.get(rarity, (39, 39, 42))
-        pygame.draw.rect(self.screen, bg_color, rect, border_radius=6)
+        pygame.draw.rect(self.screen, bg_color, draw_rect, border_radius=self._su(6))
         border_color = RARITY_RGB.get(rarity, (82, 82, 91))
         # Stage 117 — hover highlight: brighter border.
-        border_w = 3 if is_hover else 2
-        pygame.draw.rect(self.screen, border_color, rect, border_w, border_radius=6)
+        border_w = self._su(3) if is_hover else self._su(2)
+        pygame.draw.rect(self.screen, border_color, draw_rect, border_w, border_radius=self._su(6))
 
         # Icon.
         if icon_surf is not None:
             iw, ih = icon_surf.get_size()
-            self.screen.blit(icon_surf, (x + (sz - iw) // 2, y + (sz - ih) // 2))
+            self.screen.blit(
+                icon_surf,
+                (draw_rect.x + (draw_rect.w - iw) // 2,
+                 draw_rect.y + (draw_rect.h - ih) // 2),
+            )
         else:
             letter = "?"
-            letter_surf = self.font_small.render(letter, True, (150, 150, 150))
-            lr = letter_surf.get_rect(center=rect.center)
+            letter_surf = self._su_font(13).render(letter, True, (150, 150, 150))
+            lr = letter_surf.get_rect(center=draw_rect.center)
             self.screen.blit(letter_surf, lr.topleft)
 
         # Count badge (bottom-right corner).
         if count > 1:
             badge_text = f"x{count}"
-            badge_surf = self.font_small.render(badge_text, True, (255, 255, 255))
-            bw = badge_surf.get_width() + 6
-            bh = badge_surf.get_height() + 2
-            bx = x + sz - bw - 2
-            by = y + sz - bh - 2
-            pygame.draw.rect(self.screen, (0, 0, 0, 180), pygame.Rect(bx, by, bw, bh), border_radius=4)
-            self.screen.blit(badge_surf, (bx + 3, by + 1))
+            badge_surf = self._su_font(13).render(badge_text, True, (255, 255, 255))
+            bw = badge_surf.get_width() + self._su(6)
+            bh = badge_surf.get_height() + self._su(2)
+            bx = draw_rect.right - bw - self._su(2)
+            by = draw_rect.bottom - bh - self._su(2)
+            pygame.draw.rect(self.screen, (0, 0, 0, 180), pygame.Rect(bx, by, bw, bh), border_radius=self._su(4))
+            self.screen.blit(badge_surf, (bx + self._su(3), by + self._su(1)))
 
         # Stage 117/118 — hover tooltip (multiline if provided).
         if is_hover:
@@ -251,47 +259,52 @@ class QuickBattleRendererMixin:
         If `lines` is provided, renders a multiline rich tooltip (each line is
         a (text, color) tuple). If only `text` is provided, renders a single-line
         tooltip. The positioning logic (above slot, clamped to screen) is shared.
+
+        Stage 201 — slot_x/slot_y/slot_sz — ДИЗАЙН-координаты; тултип
+        рисуется ×_su с шрифтами _su_font.
         """
         rarity_color = RARITY_RGB.get(rarity, (234, 179, 8))
-        line_h = self.font_small.get_height() + 2
+        font = self._su_font(13)
+        line_h = font.get_height() + self._su(2)
 
         if lines:
             rendered = []
             max_w = 0
             for ln_text, ln_color in lines:
-                surf = self.font_small.render(ln_text, True, ln_color)
+                surf = font.render(ln_text, True, ln_color)
                 rendered.append(surf)
                 if surf.get_width() > max_w:
                     max_w = surf.get_width()
-            tip_w = max_w + 16
-            tip_h = line_h * len(rendered) + 8
-            border_w = 2
-            accent_h = 3
+            tip_w = max_w + self._su(16)
+            tip_h = line_h * len(rendered) + self._su(8)
+            border_w = self._su(2)
+            accent_h = self._su(3)
         else:
-            text_surf = self.font_small.render(text, True, (255, 255, 255))
+            text_surf = font.render(text, True, (255, 255, 255))
             rendered = [text_surf]
-            tip_w = text_surf.get_width() + 12
-            tip_h = text_surf.get_height() + 6
+            tip_w = text_surf.get_width() + self._su(12)
+            tip_h = text_surf.get_height() + self._su(6)
             border_w = 1
             accent_h = 0
 
-        tx = slot_x + slot_sz // 2 - tip_w // 2
-        ty = slot_y - tip_h - 6
-        if ty < 4:
-            ty = slot_y + slot_sz + 6
-        if tx < 4:
-            tx = 4
-        if tx + tip_w > SCREEN_WIDTH - 4:
-            tx = SCREEN_WIDTH - tip_w - 4
+        tx = self._su(slot_x) + self._su(slot_sz) // 2 - tip_w // 2
+        ty = self._su(slot_y) - tip_h - self._su(6)
+        if ty < self._su(4):
+            ty = self._su(slot_y) + self._su(slot_sz) + self._su(6)
+        if tx < self._su(4):
+            tx = self._su(4)
+        scr_w = self.screen.get_width()
+        if tx + tip_w > scr_w - self._su(4):
+            tx = scr_w - tip_w - self._su(4)
 
         tip_rect = pygame.Rect(tx, ty, tip_w, tip_h)
-        pygame.draw.rect(self.screen, (15, 15, 18), tip_rect, border_radius=6)
-        pygame.draw.rect(self.screen, rarity_color, tip_rect, border_w, border_radius=6)
+        pygame.draw.rect(self.screen, (15, 15, 18), tip_rect, border_radius=self._su(6))
+        pygame.draw.rect(self.screen, rarity_color, tip_rect, border_w, border_radius=self._su(6))
         if accent_h > 0:
             pygame.draw.rect(self.screen, rarity_color,
-                             pygame.Rect(tx, ty, tip_w, accent_h), border_radius=2)
+                             pygame.Rect(tx, ty, tip_w, accent_h), border_radius=self._su(2))
         for i, surf in enumerate(rendered):
-            self.screen.blit(surf, (tx + 8, ty + 4 + i * line_h))
+            self.screen.blit(surf, (tx + self._su(8), ty + self._su(4) + i * line_h))
 
     # ------------------------------------------------------------------
     # Stage 114 — REDESIGNED RESULT MODAL WITH LOOT GRID

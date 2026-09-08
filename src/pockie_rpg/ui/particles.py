@@ -117,8 +117,12 @@ class ParticleSystem:
                 alive.append(p)
         self._particles = alive
 
-    def render(self, screen: pygame.Surface) -> None:
+    def render(self, screen: pygame.Surface, scale: float = 1.0) -> None:
         """Render all alive particles as small alpha-blended circles.
+
+        Stage 201 — ``scale``: масштаб рендера боя (1.0 legacy; UI_SCALE ×
+        BATTLE_WINDOW_SCALE в нативной фазе). Позиции/размер частиц остаются
+        в дизайн-координатах — масштаб применяется ТОЛЬКО при отрисовке.
 
         Аудит 2026-09 — кэш кругов: раньше Surface создавалась и растеризо-
         валась (draw.circle) для КАЖДОЙ частицы КАЖДЫЙ кадр (до сотен
@@ -133,7 +137,7 @@ class ParticleSystem:
             alpha = max(0, min(255, int((p.life / p.max_life) * 255)))
             if alpha <= 0:
                 continue
-            size = max(1, p.size)
+            size = max(1, int(round(p.size * scale)))
             bucket = alpha // 16
             key = (size, p.color, bucket)
             surf = cache.get(key)
@@ -147,7 +151,9 @@ class ParticleSystem:
                 )
                 cache[key] = surf
             surf.set_alpha(max(48, min(255, alpha)))
-            screen.blit(surf, (int(p.x - size), int(p.y - size)))
+            screen.blit(
+                surf, (int(p.x * scale - size), int(p.y * scale - size))
+            )
 
     def clear(self) -> None:
         """Remove all particles."""
@@ -335,15 +341,19 @@ class DamageNumberSystem:
                 alive.append(n)
         self._numbers = alive
 
-    def render(self, screen: pygame.Surface) -> None:
-        """Render all alive damage numbers with alpha + scale (flash phase)."""
+    def render(self, screen: pygame.Surface, scale: float = 1.0) -> None:
+        """Render all alive damage numbers with alpha + scale (flash phase).
+
+        Stage 201 — ``scale``: масштаб рендера боя (позиции и размер шрифта
+        масштабируются при отрисовке; состояние остаётся в дизайн-единицах).
+        """
         for n in self._numbers:
             if n.life <= 0.0:
                 continue
             alpha = n.alpha
             if alpha <= 0:
                 continue
-            font = self._get_font(n.font_size)
+            font = self._get_font(max(1, int(round(n.font_size * scale))))
             text_surf = font.render(n.text, True, n.color)
             text_surf.set_alpha(alpha)
             # Stage 97 — scale during flash phase (pulsing effect).
@@ -353,7 +363,9 @@ class DamageNumberSystem:
                     sw = max(1, int(text_surf.get_width() * scale))
                     sh = max(1, int(text_surf.get_height() * scale))
                     text_surf = pygame.transform.smoothscale(text_surf, (sw, sh))
-            text_rect = text_surf.get_rect(center=(int(n.x), int(n.y)))
+            text_rect = text_surf.get_rect(
+                center=(int(n.x * scale), int(n.y * scale))
+            )
             screen.blit(text_surf, text_rect.topleft)
 
     def clear(self) -> None:

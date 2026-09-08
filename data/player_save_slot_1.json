@@ -2,21 +2,22 @@
   "name": "Игрок",
   "suit_id": "i290001",
   "role_id": 1,
-  "level": 6,
-  "current_xp": 350,
-  "max_xp": 600,
-  "gold": 925,
+  "level": 11,
+  "current_xp": 400,
+  "max_xp": 1100,
+  "gold": 1145,
   "coupons": 10500,
   "defeated_mobs": [
     "mob_1",
-    "mob_2"
+    "mob_2",
+    "mob_3"
   ],
-  "current_hp": 1550,
-  "current_mp": 450,
-  "strength": 12,
-  "agility": 16,
-  "stamina": 12,
-  "max_mp": 250,
+  "current_hp": 1860,
+  "current_mp": 500,
+  "strength": 15,
+  "agility": 23,
+  "stamina": 15,
+  "max_mp": 300,
   "active_skills": [
     12006,
     15005,
@@ -325,13 +326,13 @@
       "gen_w_006",
       "gen_w_007",
       "gen_w_008",
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      "gen_w_009",
+      "gen_w_010",
+      "gen_w_011",
+      "gen_w_012",
+      "gen_w_013",
+      "gen_w_014",
+      "gen_w_015",
       null,
       null,
       null,
@@ -1387,6 +1388,16 @@
       "id": "gem_6",
       "type": "gem_blue",
       "level": 1
+    },
+    {
+      "id": "gem_7",
+      "type": "gem_green",
+      "level": 1
+    },
+    {
+      "id": "gem_8",
+      "type": "gem_red",
+      "level": 1
     }
   ],
   "gear_gem_slots": {
@@ -1431,7 +1442,7 @@
       null
     ]
   },
-  "_gem_id_counter": 6,
+  "_gem_id_counter": 8,
   "active_title": "legend",
   "world_boss_attempts": 3,
   "world_boss_next_attempt_ts": null,
@@ -1449,7 +1460,7 @@
   "tower_shards": 0,
   "tower_pending_xp": 0,
   "daily_quest_progress": {
-    "kill_mobs": 17
+    "kill_mobs": 22
   },
   "daily_quest_claimed": [],
   "daily_quest_date": "2026-09-08",
@@ -1590,12 +1601,124 @@
       "generated": true,
       "template_id": "boots_shinobi",
       "item_type": "boots"
+    },
+    "gen_w_009": {
+      "name": "Стальная булава [Blue]",
+      "slot": "weapon",
+      "item_level": 10,
+      "level_requirement": 10,
+      "rarity": "Blue",
+      "stats": {
+        "min_atk": 12,
+        "max_atk": 22,
+        "hit_pct": 4
+      },
+      "icon_filename": "weapon_blunt3.gif",
+      "sell_price": 240,
+      "generated": true,
+      "template_id": "weapon_blunt3"
+    },
+    "gen_w_010": {
+      "name": "Стальная булава",
+      "slot": "weapon",
+      "item_level": 10,
+      "level_requirement": 10,
+      "rarity": "Grey",
+      "stats": {
+        "min_atk": 12,
+        "max_atk": 22
+      },
+      "icon_filename": "weapon_blunt3.gif",
+      "sell_price": 120,
+      "generated": true,
+      "template_id": "weapon_blunt3"
+    },
+    "gen_w_011": {
+      "name": "Пояс клана",
+      "slot": "belt",
+      "item_level": 10,
+      "level_requirement": 10,
+      "rarity": "Grey",
+      "stats": {
+        "defense": 10,
+        "tough_rating": 10
+      },
+      "icon_filename": "belt_jade3.gif",
+      "sell_price": 100,
+      "generated": true,
+      "template_id": "belt_jade3",
+      "item_type": "belt"
+    },
+    "gen_w_012": {
+      "name": "Стальная булава [Blue]",
+      "slot": "weapon",
+      "item_level": 10,
+      "level_requirement": 10,
+      "rarity": "Blue",
+      "stats": {
+        "min_atk": 12,
+        "max_atk": 22,
+        "crit_pct": 3
+      },
+      "icon_filename": "weapon_blunt3.gif",
+      "sell_price": 240,
+      "generated": true,
+      "template_id": "weapon_blunt3"
+    },
+    "gen_w_013": {
+      "name": "Стальная булава [Blue]",
+      "slot": "weapon",
+      "item_level": 10,
+      "level_requirement": 10,
+      "rarity": "Blue",
+      "stats": {
+        "min_atk": 12,
+        "max_atk": 22,
+        "dodge_rating": 7
+      },
+      "icon_filename": "weapon_blunt3.gif",
+      "sell_price": 240,
+      "generated": true,
+      "template_id": "weapon_blunt3"
+    },
+    "gen_w_014": {
+      "name": "Туфли ловкости",
+      "slot": "boots",
+      "item_level": 5,
+      "level_requirement": 5,
+      "rarity": "Grey",
+      "stats": {
+        "defense": 3,
+        "speed": 12
+      },
+      "icon_filename": "boots_shoes2.gif",
+      "sell_price": 30,
+      "generated": true,
+      "template_id": "boots_shoes2",
+      "item_type": "boots"
+    },
+    "gen_w_015": {
+      "name": "Жилет ниндзя [Blue]",
+      "slot": "body",
+      "item_level": 1,
+      "level_requirement": 1,
+      "rarity": "Blue",
+      "stats": {
+        "defense": 5,
+        "max_hp": 15,
+        "hit_rating": 1
+      },
+      "icon_filename": "vest_ninja.png",
+      "sell_price": 100,
+      "generated": true,
+      "template_id": "vest_ninja",
+      "item_type": "armor"
     }
   },
-  "gen_w_counter": 8,
-  "_str_accum": 12.999999999999998,
-  "_agi_accum": 16.75,
-  "_sta_accum": 12.5,
+  "gen_w_counter": 15,
+  "_str_accum": 15.999999999999996,
+  "_agi_accum": 23.500000000000007,
+  "_sta_accum": 15.0,
   "slot_next_roll_ts": null,
   "outfit_instances": {},
   "_outfit_inst_counter": 0,

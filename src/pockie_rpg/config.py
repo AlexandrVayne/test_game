@@ -121,8 +121,12 @@ def su(v: float) -> int:
 # немигрированные модалки уходят в legacy-слой); Stage 156 — "synth",
 # "wardrobe" (единый размер + перетаскивание за шапку) и "titles";
 # Stage 157 — "shop". Чек-лист миграции — RULES.md (§Hi-DPI).
+# Stage 201 — "battle": нативный Hi-DPI боя (контент окна 60% рисуется
+# ×(UI_SCALE×BATTLE_WINDOW_SCALE) в offscreen-поверхность окна; ClickRect'ы
+# боя остаются ДИЗАЙН-координатами — мышь ремапится _map_battle_mouse).
 NATIVE_MODAL_REGISTRY: set[str] = {
     "inventory", "forge", "map", "synth", "wardrobe", "titles", "shop",
+    "battle",
 }
 # Клавиша переключения fullscreen (pygame key code, F11).
 FULLSCREEN_TOGGLE_KEY: int = 294  # pygame.K_F11

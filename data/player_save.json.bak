@@ -3,9 +3,9 @@
   "suit_id": "i290001",
   "role_id": 1,
   "level": 11,
-  "current_xp": 400,
+  "current_xp": 700,
   "max_xp": 1100,
-  "gold": 1145,
+  "gold": 1290,
   "coupons": 10500,
   "defeated_mobs": [
     "mob_1",
@@ -1460,7 +1460,7 @@
   "tower_shards": 0,
   "tower_pending_xp": 0,
   "daily_quest_progress": {
-    "kill_mobs": 22
+    "kill_mobs": 24
   },
   "daily_quest_claimed": [],
   "daily_quest_date": "2026-09-08",

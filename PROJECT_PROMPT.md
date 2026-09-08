@@ -898,7 +898,8 @@ python -m py_compile config.py ui/render_battle.py ui/effects.py ui/combat_repla
 «Hi-DPI — правила работы»); статус миграции и план — в `MEMORY.md`.
 - `config.UI_SCALE = 2.0`, `SCREEN_WIDTH_UI/HEIGHT_UI` (2560×1440), `su()`,
   `NATIVE_MODAL_REGISTRY = {"inventory", "forge", "map", "synth", "wardrobe",
-  "titles", "shop"}` (Stage 151-157), `MODAL_SCALE_2K = 1.0`, `MODAL_FADE_SEC = 0.15`.
+  "titles", "shop", "battle"}` (Stage 151-157, 201), `MODAL_SCALE_2K = 1.0`,
+  `MODAL_FADE_SEC = 0.15`.
 - Нативный путь активен при ЦЕЛОЧИСЛЕННОМ масштабе монитора (`compute_ui_scale`:
   2560×1440 → 2.0, 3840×2160 → 3.0); дробные (2048×1152 = 1.6 от Windows 125%
   без DPI-aware) → legacy 1.0. DPI-awareness — `_make_windows_dpi_aware()` в main.py.
@@ -908,7 +909,14 @@ python -m py_compile config.py ui/render_battle.py ui/effects.py ui/combat_repla
   прозрачный `_legacy_layer` 1280×720) → немигрированные модалки в слой →
   `_present_fullscreen(flip=False)` (при нативном базовом экране накладывает
   ТОЛЬКО слой, буфер не растягивается) → `_render_native_overlays()` → оверлей
-  F10 → `flip()`. Бой/арена/тест-бой — legacy-путь (миграция боя — последней).
+  F10 → `flip()`.
+- **Бой (Stage 201) — нативный, но по СВОЕЙ схеме (окно 60%)**: scale =
+  UI_SCALE × BATTLE_WINDOW_SCALE (2К: 1.2); контент рисуется в offscreen-
+  поверхность ОКНА (монитор ×BATTLE_WINDOW_SCALE) и блитится 1:1; ClickRect'ы
+  боя — ДИЗАЙН-координаты (мышь ремапится `_map_battle_mouse`, маркировка
+  native=True сломала бы клики); чар-листы — `_legacy_layer`, накладываемый
+  в прямоугольник окна; фон — снапшот сцены через кэш `_battle_bg_monitor`.
+  Арена/тест-бой (F9) — legacy-путь. Детали и готчи — MEMORY (Stage 201).
 - Мигрированный рендер пишется в ДИЗАЙН-координатах и проходит через
   `self._su()` / `_su_rect()` / `_su_font()` / `_su_icon_size()` / `_su_scaled()` /
   `_su_image()` / `_su_overlay()` (`ui/scaling.ScalableRendererMixin`) + общие
@@ -917,8 +925,9 @@ python -m py_compile config.py ui/render_battle.py ui/effects.py ui/combat_repla
 - `ClickRect.native` + `_click_rect_hit()` — hit-тест в своём пространстве;
   `_inv_native_pos()` — конвертация позиций событий для экранов с нативным layout.
 - Смоук: `PYTHONPATH=src python scripts/hidpi_smoke.py [--modal inventory|forge|map]`.
-- Ещё legacy: char sheet/навыки, башня/дейлики/слот-машина/quick battle, мировая
-  карта (свой `WORLDMAP_SCALE` + маски), бой (последним).
+- Ещё legacy: char sheet/навыки, башня/дейлики/слот-машина/quick battle,
+  мировая карта (свой `WORLDMAP_SCALE` + маски), арена, тест-бой (F9).
+- Смоук нативного боя: `python scripts/verify_battle_native.py` (18 чеков).
 
 ### 12.4 Ассеты
 - Спрайты: `assets/extracted/<role>/<action>/N.png` (1.png, 2.png, ...).

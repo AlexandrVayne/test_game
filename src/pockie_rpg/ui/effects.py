@@ -79,15 +79,20 @@ class IceBlockEffect:
         cx: int,
         cy: int,
         asset_manager: AssetManager,
+        scale: float = 1.0,
     ) -> None:
-        """Render the current ice block frame centered on (cx, cy)."""
+        """Render the current ice block frame centered on (cx, cy).
+
+        Stage 201 — ``scale``: размер спрайта эффекта ×scale (позиция (cx, cy)
+        приходит уже в пространстве рендера от вызывающего).
+        """
         if not self.active or self._frame_count <= 0:
             return
         sprite = asset_manager.get_motion_sprite(
             ICE_BLOCK_FOLDER,
             self.frame_index,
-            ICE_BLOCK_RENDER_W,
-            ICE_BLOCK_RENDER_H,
+            max(1, int(round(ICE_BLOCK_RENDER_W * scale))),
+            max(1, int(round(ICE_BLOCK_RENDER_H * scale))),
             flip=False,
             preserve_aspect=False,
         )
@@ -154,15 +159,20 @@ class EffectOverlay:
         cx: int,
         cy: int,
         asset_manager: AssetManager,
+        scale: float = 1.0,
     ) -> None:
-        """Render the current overlay frame centered on (cx, cy)."""
+        """Render the current overlay frame centered on (cx, cy).
+
+        Stage 201 — ``scale``: размер спрайта эффекта ×scale (позиция
+        (cx, cy) приходит уже в пространстве рендера от вызывающего).
+        """
         if not self.active or self._frame_count <= 0:
             return
         sprite = asset_manager.get_motion_sprite(
             self.folder,
             self.frame_index,
-            self.render_w,
-            self.render_h,
+            max(1, int(round(self.render_w * scale))),
+            max(1, int(round(self.render_h * scale))),
             flip=False,
             preserve_aspect=False,
         )
@@ -243,20 +253,25 @@ class CastEffect:
         self,
         screen: pygame.Surface,
         asset_manager: AssetManager,
+        scale: float = 1.0,
     ) -> None:
-        """Render the current cast-effect frame centered on (target_x, target_y)."""
+        """Render the current cast-effect frame centered on (target_x, target_y).
+
+        Stage 201 — ``scale``: позиция и размер масштабируются при отрисовке
+        (target_x/render_w остаются в дизайн-координатах).
+        """
         if not self.active or self._frame_count <= 0:
             return
         sprite = asset_manager.get_motion_sprite(
             self.folder,
             self.frame_index,
-            self.render_w,
-            self.render_h,
+            max(1, int(round(self.render_w * scale))),
+            max(1, int(round(self.render_h * scale))),
             flip=False,
             preserve_aspect=False,
         )
-        x = self.target_x - self.render_w // 2
-        y = self.target_y - self.render_h // 2
+        x = int(self.target_x * scale) - sprite.get_width() // 2
+        y = int(self.target_y * scale) - sprite.get_height() // 2
         screen.blit(sprite, (x, y))
 
 
@@ -343,12 +358,16 @@ class ProjectileEffect:
         self,
         screen: pygame.Surface,
         asset_manager: AssetManager,
+        scale: float = 1.0,
     ) -> None:
         """Render the current projectile frame at the interpolated position.
 
         Phase 1 (frames 0..CAST_HOLD_FRAMES-1): anchored at caster position.
         Phase 2 (frames CAST_HOLD_FRAMES..N-2): linear travel from caster to target.
         Phase 3 (frame N-1): anchored at target (explosion).
+
+        Stage 201 — ``scale``: позиция и размер масштабируются при отрисовке
+        (start_x/end_x/render_w остаются в дизайн-координатах).
         """
         if not self.active or self._frame_count <= 0:
             return
@@ -369,13 +388,13 @@ class ProjectileEffect:
         sprite = asset_manager.get_motion_sprite(
             self.folder,
             self.frame_index,
-            self.render_w,
-            self.render_h,
+            max(1, int(round(self.render_w * scale))),
+            max(1, int(round(self.render_h * scale))),
             flip=self.flip,
             preserve_aspect=False,
         )
-        blit_x = x - self.render_w // 2
-        blit_y = y - self.render_h // 2
+        blit_x = int(x * scale) - sprite.get_width() // 2
+        blit_y = int(y * scale) - sprite.get_height() // 2
         screen.blit(sprite, (blit_x, blit_y))
 
 
