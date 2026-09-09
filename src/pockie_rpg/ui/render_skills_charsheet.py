@@ -57,6 +57,7 @@ from pockie_rpg.config import (
     TEXT_DIM,
     TEXT_WHITE,
 )
+from pockie_rpg.data.enemy_db import ENEMY_DB
 from pockie_rpg.game.state import ENEMY_MOBS, ROLES, resolve_player_suit
 from pockie_rpg.ui.animator import ClickRect
 
@@ -346,6 +347,11 @@ class SkillsCharSheetRendererMixin:
         else:
             enemy = ENEMY_MOBS.get(self.target_mob_id)
             if enemy is None:
+                # Stage 213 — враги башни ЛН не в ENEMY_MOBS: резолвим из
+                # ENEMY_DB (target_mob_id = enemy_id этажа, задаётся при
+                # входе в бой башни).
+                enemy = ENEMY_DB.get(self.target_mob_id)
+            if enemy is None:
                 return
             role = ROLES.get(enemy.role_id)
             fighter = self._enemy_fighter
@@ -360,7 +366,12 @@ class SkillsCharSheetRendererMixin:
         header_y = win_y + 12
         level_text = f"Ур.{level}"
         level_surf = self.font_charsheet_level.render(level_text, True, CHAR_SHEET_ACCENT)
-        name_text = display_name if self._char_sheet_target == "player" else role.name
+        name_text = display_name if self._char_sheet_target == "player" else (
+            # Stage 213 — имя шаблона врага (для ЛН: «Рудобон»/«Рэй»),
+            # фолбэк — имя роли.
+            (getattr(enemy, "name", "") or role.name)
+            if enemy is not None else role.name
+        )
         # Stage 177 — шрифт 20px вместо 28px: длинные имена («Черный самурай»)
         # влезают в 279px окна рядом с «Ур.N» без обрезки.
         title_surf = self.font_charsheet_name.render(name_text, True, TEXT_WHITE)
@@ -401,7 +412,11 @@ class SkillsCharSheetRendererMixin:
         if self._char_sheet_target == "player":
             lines = self._build_player_sheet_lines(hp_val, mp_val, max_hp_val, max_mp_val)
         else:
-            lines = self._build_enemy_sheet_lines(role, hp_val, mp_val, max_hp_val, max_mp_val)
+            # Stage 213 — fighter передаётся: если он есть (бой открыт),
+            # статы берутся из НЕГО (точные значения, в т.ч. exact-враги ЛН).
+            lines = self._build_enemy_sheet_lines(
+                role, hp_val, mp_val, max_hp_val, max_mp_val, fighter=fighter,
+            )
 
         hovered = self._render_sheet_lines(win_x, win_y, win_w, header_sep_y, lines)
 
@@ -560,8 +575,14 @@ class SkillsCharSheetRendererMixin:
         mp_val: int,
         max_hp_val: int,
         max_mp_val: int,
+        fighter=None,
     ) -> list[StatLine]:
         """Строки статов ВРАГА (Stage 177 схема; с Stage 178 — общий формат).
+
+        Stage 213 — если передан fighter (бой открыт), значения берутся
+        из НЕГО: это РЕАЛЬНЫЕ боевые статы (с множителями и exact-данными
+        врагов ЛН). Без fighter — расчёт из роли (карточка из карты, бой
+        не создан).
 
         Значения считаются из первичных статов роли через DEFAULT_BMV_PRICE
         (как в Stage 104: у мобов нет костюма/броней; Проб = 0, А.Блок = 0).
@@ -578,19 +599,33 @@ class SkillsCharSheetRendererMixin:
             calc_tough_rating,
         )
 
-        speed = calc_speed(role.agility, DEFAULT_BMV_PRICE_AGI, 0)
-        # У мобов Проб = 0 и А.Блок = 0 (нет снаряжения — Stage 177).
-        pierce = 0
-        antiblock = 0
-        crit = calc_crit_rating(role.strength, 0)
-        hit = calc_hit_rating(role.strength, DEFAULT_BMV_PRICE_STR, 0)
-        dodge = calc_dodge_rating(role.agility, DEFAULT_BMV_PRICE_AGI, 0)
-        tough = calc_tough_rating(
-            role.strength, role.stamina,
-            DEFAULT_BMV_PRICE_STR, DEFAULT_BMV_PRICE_STA, 0,
-        )
-        block = calc_block_rating(role.strength, DEFAULT_BMV_PRICE_STR, 0)
-        defense = role.defense
+        if fighter is not None:
+            # Stage 213 — реальные боевые статы из Fighter.
+            speed = fighter.speed
+            pierce = fighter.pierce_rating
+            antiblock = fighter.antiblock_rating
+            crit = fighter.crit_rating
+            hit = fighter.hit_chance
+            dodge = fighter.dodge_chance
+            tough = fighter.tough_rating
+            block = fighter.block_rating
+            defense = fighter.defense
+            atk_text = f"{fighter.min_atk} - {fighter.max_atk}"
+        else:
+            speed = calc_speed(role.agility, DEFAULT_BMV_PRICE_AGI, 0)
+            # У мобов Проб = 0 и А.Блок = 0 (нет снаряжения — Stage 177).
+            pierce = 0
+            antiblock = 0
+            crit = calc_crit_rating(role.strength, 0)
+            hit = calc_hit_rating(role.strength, DEFAULT_BMV_PRICE_STR, 0)
+            dodge = calc_dodge_rating(role.agility, DEFAULT_BMV_PRICE_AGI, 0)
+            tough = calc_tough_rating(
+                role.strength, role.stamina,
+                DEFAULT_BMV_PRICE_STR, DEFAULT_BMV_PRICE_STA, 0,
+            )
+            block = calc_block_rating(role.strength, DEFAULT_BMV_PRICE_STR, 0)
+            defense = role.defense
+            atk_text = f"{role.min_atk} - {role.max_atk}"
 
         return [
             ("line", (
@@ -601,7 +636,9 @@ class SkillsCharSheetRendererMixin:
             )),
             ("sep",),
             ("line", (
-                ("Атака :", f"{role.min_atk} - {role.max_atk}", _ATK_COLOR, None, 0),
+                # Stage 213 — atk_text: из Fighter при бое (exact-враги ЛН),
+                # иначе из роли.
+                ("Атака :", atk_text, _ATK_COLOR, None, 0),
             )),
             ("line", (
                 ("Скорость :", f"{speed:.2f}", _HP_COLOR, None, 0),

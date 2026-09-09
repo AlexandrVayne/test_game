@@ -1981,6 +1981,9 @@ class PygameUI(
             level=enemy.level,
             hp_mul=enemy.hp_mul,
             atk_mul=enemy.atk_mul,
+            # Stage 213 — exact-враги (пока только башня ЛН) и их имя.
+            exact=getattr(enemy, "exact", None),
+            name_override=(enemy.name if getattr(enemy, "exact", None) is not None else None),
         )
         enemy_motion_folder = MOB_TO_MOTION.get(enemy.mob_id, "samurai/idle")
         enemy_flip = self.asset_manager.needs_flip_for_enemy(
@@ -2602,6 +2605,11 @@ class PygameUI(
             hp_mul=enemy_tmpl.hp_mul * tower_floor.hp_multiplier,
             atk_mul=enemy_tmpl.atk_mul * tower_floor.attack_multiplier,
             skills=tuple(boss_skills) if boss_skills else (),
+            # Stage 213 — точные статы ЛН (этажи 1-10): множители выше на
+            # exact не действуют (override в from_role). Имя — из шаблона,
+            # чтобы HUD показывал «Рудобон»/«Рэй», а не имя Role.
+            exact=enemy_tmpl.exact,
+            name_override=(enemy_tmpl.name if enemy_tmpl.exact is not None else None),
         )
         # Apply simple pre-battle modifiers (boss_fast_start → bonus action points).
         if "boss_fast_start" in tower_floor.modifiers:
@@ -2638,6 +2646,10 @@ class PygameUI(
         self._tower_active_is_boss = tower_floor.is_boss
         self._tower_active_modifiers = tower_floor.modifiers
         self._tower_reward_applied = False
+        # Stage 213 — target_mob_id = enemy_id этажа: панель статов врага
+        # в бою башни резолвит шаблон из ENEMY_DB (раньше был stale-id
+        # последней карты-мобы или ничего).
+        self.target_mob_id = tower_floor.enemy_id
         # Close the Tower modal so it doesn't show during battle.
         self._tower_modal_open = False
         self._tower_shop_open = False
@@ -2653,18 +2665,27 @@ class PygameUI(
     def _tower_enemy_motion_folder(enemy_id: str) -> str:
         """Map a Tower floor's enemy_id to a motion folder.
 
-        Tower floors reuse existing enemies (samurai_*, flower_1). The motion
-        folder is derived from the enemy's role_id, not the enemy_id, so we
-        map by name prefix here.
+        Stage 213 — основной путь: role_id шаблона из ENEMY_DB
+        (10001 → samurai, 10002 → blue_swordsman, 10004 → black_samurai,
+        10102 → flower). Новые враги ЛН (ln_*) держат role_id=10001 —
+        визуал прежний (samurai/idle) до смены аватарок/анимаций.
+        Фолбэк — прежний парсинг суффикса имени для id вне БД.
         """
-        # flower_1 → flower/idle
-        if enemy_id.startswith("flower"):
-            return "flower/idle"
-        # samurai_1, samurai_4, samurai_7, samurai_10 → samurai/idle (role 10001)
-        # samurai_2, samurai_5, samurai_8, samurai_11 → blue_swordsman/idle (10002)
-        # samurai_3, samurai_6, samurai_9, samurai_12 → black_samurai/idle (10004)
-        # Use the legacy MOB_TO_MOTION mapping by trying common keys.
-        # Map by index: 1,4,7,10 → samurai; 2,5,8,11 → blue; 3,6,9,12 → black.
+        from pockie_rpg.data.enemy_db import ENEMY_DB
+
+        tmpl = ENEMY_DB.get(enemy_id)
+        if tmpl is not None:
+            rid = tmpl.role_id
+            if rid == 10002:
+                return "blue_swordsman/idle"
+            if rid == 10004:
+                return "black_samurai/idle"
+            if rid == 10102:
+                return "flower/idle"
+            return "samurai/idle"
+        # Legacy fallback: samurai_1, samurai_4, samurai_7, samurai_10 →
+        # samurai/idle (role 10001); _2/_5/_8/_11 → blue (10002);
+        # _3/_6/_9/_12 → black (10004).
         try:
             suffix = int(enemy_id.split("_")[-1])
         except (ValueError, IndexError):

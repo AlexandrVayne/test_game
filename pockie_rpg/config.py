@@ -19,14 +19,23 @@ from pathlib import Path
 # Stage 210 — версия сборки: показывается в F9-фейсинг-оверлее, чтобы на
 # экране было видно, какая сборка запущена (репорты со старых архивов).
 # Stage 213 — враги 1-10 Лас Ночес (точные статы оригинала + имена).
-GAME_VERSION: str = "v208.0"
+# Stage 214 — архив несёт ОБЕ копии игры (pockie_rpg/ + src/pockie_rpg/).
+GAME_VERSION: str = "v208.1"
 
 # ---------------------------------------------------------------------------
 # PROJECT PATHS
 # ---------------------------------------------------------------------------
 
 # /home/z/pockie_rpg/src/pockie_rpg/config.py → /home/z/pockie_rpg
-PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
+# Stage 214 — авто-детект раскладки: игра может лежать как src-пакетом
+# (src/pockie_rpg/config.py → root = parents[2]), так и корневым пакетом
+# (pockie_rpg/config.py → root = parents[1]; раньше корневая копия искала
+# assets/ и data/ НАД папкой игры). Критерий — где фактически лежит assets/.
+_cfg_file: Path = Path(__file__).resolve()
+if (_cfg_file.parents[2] / "assets").is_dir():
+    PROJECT_ROOT: Path = _cfg_file.parents[2]
+else:
+    PROJECT_ROOT: Path = _cfg_file.parents[1]
 ASSETS_DIR: Path = PROJECT_ROOT / "assets"
 BACKGROUNDS_DIR: Path = ASSETS_DIR / "backgrounds"
 EXTRACTED_DIR: Path = ASSETS_DIR / "extracted"
