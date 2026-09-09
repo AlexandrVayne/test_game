@@ -1100,12 +1100,13 @@ class MapRendererMixin:
             rect = self._su_rect(bx, y, icon_sz, icon_sz)
             b = buffs[i] if i < len(buffs) else None
             hover = rect.collidepoint(self._mouse_pos)
-            # Слот: тёмная плашка + рамка (hover — золотая; пустой слот тусклее).
-            pygame.draw.rect(self.screen, (24, 24, 28), rect, border_radius=5)
+            # Слот: плашка + рамка (hover — золотая; пустой слот тусклее).
+            # Stage 211 — подложка СВЕТЛЕЕ (репорт: «слишком тёмная»).
+            pygame.draw.rect(self.screen, (46, 46, 53), rect, border_radius=5)
             if b is not None:
-                border = (234, 179, 8) if hover else (63, 63, 70)
+                border = (234, 179, 8) if hover else (94, 94, 104)
             else:
-                border = (39, 39, 44)
+                border = (72, 72, 80)
             pygame.draw.rect(self.screen, border, rect, su(1), border_radius=5)
             if b is None:
                 continue

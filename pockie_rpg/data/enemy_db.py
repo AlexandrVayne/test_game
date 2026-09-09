@@ -11,6 +11,7 @@ Per §4.3: imports ONLY stdlib (no config/ui imports).
 from __future__ import annotations
 
 from pockie_rpg.data.models import EnemyDef as EnemyTemplate
+from pockie_rpg.data.models import EnemyExactStats
 
 # ---------------------------------------------------------------------------
 # THE ENEMY DATABASE — ALL enemies in ONE place.
@@ -182,6 +183,181 @@ ENEMY_DB: dict[str, EnemyTemplate] = {
         gold_reward=3000,
         is_stub=False,
         skills=(),
+    ),
+    # -----------------------------------------------------------------
+    # Stage 213 — ЛАС НОЧЕС, враги 1-10 (этажи башни 1-10).
+    # Статы = данные оригинала (запрос пользователя: «Сделай им такие
+    # статы и имена. Аватарки и анимации мы изменим потом»). Ровно поэтому:
+    #   - exact (EnemyExactStats) — числа НАПРЯМУЮ, формулы от Role не
+    #     применяются; множители этажей башни на exact не действуют;
+    #   - role_id=10001 (Самурай) для всех — ВИЗУАЛ пока прежний
+    #     (samurai/idle через _tower_enemy_motion_folder), смена аватарок
+    #     и анимаций — отдельная задача пользователя;
+    #   - «Пробитие» №1 в дампе = pierce, «Пробитие» №2 (рядом с Блоком)
+    #     = antiblock (а.блок) — соответствует панели статов (Проб/Защит,
+    #     А.Блок/Блок, Хит/Уворот, Крит/Стойк).
+    # Хит-парность с дампом: (Ур., ОЗ, Чакра, Атака, Защ., Скорость,
+    # Проб, А.Блок, Блок, Метк., Уклон., Крит, Стойк.).
+    # -----------------------------------------------------------------
+    "ln_rudobon_1": EnemyTemplate(
+        enemy_id="ln_rudobon_1",
+        name="Рудобон",
+        level=1,
+        role_id=10001,
+        xp_reward=50,
+        gold_reward=25,
+        is_stub=False,
+        skills=(),
+        exact=EnemyExactStats(
+            max_hp=124, max_mp=124, min_atk=20, max_atk=25,
+            defense=10, speed=1.26,
+            pierce=10, antiblock=10, block=10,
+            hit=10, dodge=10, crit=10, tough=10,
+        ),
+    ),
+    "ln_hollow_1": EnemyTemplate(
+        enemy_id="ln_hollow_1",
+        name="Пустой-людоед",
+        level=1,
+        role_id=10001,
+        xp_reward=55,
+        gold_reward=28,
+        is_stub=False,
+        skills=(),
+        exact=EnemyExactStats(
+            max_hp=143, max_mp=143, min_atk=23, max_atk=28,
+            defense=24, speed=1.00,
+            pierce=10, antiblock=10, block=10,
+            hit=10, dodge=480, crit=30, tough=10,
+        ),
+    ),
+    "ln_rudobon_2": EnemyTemplate(
+        enemy_id="ln_rudobon_2",
+        name="Рудобон",
+        level=2,
+        role_id=10001,
+        xp_reward=70,
+        gold_reward=35,
+        is_stub=False,
+        skills=(),
+        exact=EnemyExactStats(
+            max_hp=233, max_mp=233, min_atk=24, max_atk=29,
+            defense=32, speed=1.06,
+            pierce=10, antiblock=10, block=10,
+            hit=10, dodge=10, crit=36, tough=10,
+        ),
+    ),
+    "ln_hollow_2": EnemyTemplate(
+        enemy_id="ln_hollow_2",
+        name="Пустой-людоед",
+        level=2,
+        role_id=10001,
+        xp_reward=80,
+        gold_reward=40,
+        is_stub=False,
+        skills=(),
+        exact=EnemyExactStats(
+            max_hp=121, max_mp=121, min_atk=37, max_atk=46,
+            defense=64, speed=1.12,
+            pierce=10, antiblock=10, block=10,
+            hit=10, dodge=10, crit=42, tough=10,
+        ),
+    ),
+    "ln_rudobon_3": EnemyTemplate(
+        enemy_id="ln_rudobon_3",
+        name="Рудобон",
+        level=3,
+        role_id=10001,
+        xp_reward=95,
+        gold_reward=48,
+        is_stub=False,
+        skills=(),
+        exact=EnemyExactStats(
+            max_hp=135, max_mp=135, min_atk=33, max_atk=41,
+            defense=74, speed=1.06,
+            pierce=10, antiblock=480, block=10,
+            hit=10, dodge=10, crit=48, tough=10,
+        ),
+    ),
+    "ln_hollow_4": EnemyTemplate(
+        enemy_id="ln_hollow_4",
+        name="Пустой-людоед",
+        level=4,
+        role_id=10001,
+        xp_reward=120,
+        gold_reward=60,
+        is_stub=False,
+        skills=(),
+        exact=EnemyExactStats(
+            max_hp=119, max_mp=119, min_atk=29, max_atk=35,
+            defense=76, speed=0.50,
+            pierce=10, antiblock=10, block=10,
+            hit=10, dodge=10, crit=72, tough=10,
+        ),
+    ),
+    "ln_rudobon_4": EnemyTemplate(
+        enemy_id="ln_rudobon_4",
+        name="Рудобон",
+        level=4,
+        role_id=10001,
+        xp_reward=130,
+        gold_reward=65,
+        is_stub=False,
+        skills=(),
+        exact=EnemyExactStats(
+            max_hp=119, max_mp=119, min_atk=72, max_atk=89,
+            defense=76, speed=1.25,
+            pierce=10, antiblock=10, block=10,
+            hit=10, dodge=10, crit=72, tough=10,
+        ),
+    ),
+    "ln_hollow_5": EnemyTemplate(
+        enemy_id="ln_hollow_5",
+        name="Пустой-людоед",
+        level=5,
+        role_id=10001,
+        xp_reward=160,
+        gold_reward=80,
+        is_stub=False,
+        skills=(),
+        exact=EnemyExactStats(
+            max_hp=147, max_mp=73, min_atk=19, max_atk=24,
+            defense=115, speed=1.00,
+            pierce=10, antiblock=10, block=10,
+            hit=10, dodge=10, crit=76, tough=10,
+        ),
+    ),
+    "ln_rudobon_6": EnemyTemplate(
+        enemy_id="ln_rudobon_6",
+        name="Рудобон",
+        level=6,
+        role_id=10001,
+        xp_reward=200,
+        gold_reward=100,
+        is_stub=False,
+        skills=(),
+        exact=EnemyExactStats(
+            max_hp=260, max_mp=260, min_atk=38, max_atk=46,
+            defense=92, speed=1.11,
+            pierce=10, antiblock=10, block=10,
+            hit=10, dodge=10, crit=84, tough=10,
+        ),
+    ),
+    "ln_rei_6": EnemyTemplate(
+        enemy_id="ln_rei_6",
+        name="Рэй",
+        level=6,
+        role_id=10001,
+        xp_reward=240,
+        gold_reward=120,
+        is_stub=False,
+        skills=(),
+        exact=EnemyExactStats(
+            max_hp=326, max_mp=326, min_atk=62, max_atk=72,
+            defense=155, speed=1.05,
+            pierce=10, antiblock=42, block=10,
+            hit=42, dodge=10, crit=0, tough=53,
+        ),
     ),
     # -----------------------------------------------------------------
     # FUTURE ENEMIES (Stage 12+) — just add entries here.

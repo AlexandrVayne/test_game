@@ -78,12 +78,44 @@ class Role:
 
 
 @dataclass(frozen=True, slots=True)
+class EnemyExactStats:
+    """Stage 213 — точные боевые статы врага (данные оригинала).
+
+    Задаются НАПРЯМУЮ (мимо формул от STR/AGI/STA): локальные формулы
+    (min_atk = 10 + STR*5, max = min*1.5 и т.д.) не могут выдать числа
+    оригинала (Атака 20-25, Уклонение 480, Крит 0). Fighter.from_role
+    применяет эти значения ПОСЛЕ всех расчётов — множители hp_mul/atk_mul
+    для такого врага не действуют.
+
+    Семантика полей = одноимённые поля Fighter (рейтинги — flat int):
+      pierce/antiblock/block/hit/dodge/crit/tough, defense, speed.
+    """
+
+    max_hp: int
+    max_mp: int
+    min_atk: int
+    max_atk: int
+    defense: int
+    speed: float
+    pierce: int = 0
+    antiblock: int = 0
+    block: int = 0
+    hit: int = 0
+    dodge: int = 0
+    crit: int = 0
+    tough: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class EnemyDef:
     """Enemy definition (unified with EnemyTemplate).
 
     Stage 130 — unified: EnemyDef is now the single enemy dataclass.
     enemy_db.py imports this directly instead of defining its own.
     roles_db.py builds ENEMY_MOBS from ENEMY_DB without field-by-field copy.
+
+    Stage 213 — `exact`: точные статы из оригинала (см. EnemyExactStats).
+    None = статы считаются формулами от Role (как раньше).
     """
 
     enemy_id: str = ""
@@ -97,6 +129,7 @@ class EnemyDef:
     gold_reward: int = 0
     is_stub: bool = False
     skills: tuple[int, ...] = ()
+    exact: EnemyExactStats | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,4 +1,4 @@
-=== Pockie RPG — F9 facing report | 2026-09-09 19:08:16 ===
-F9 FACING v207.0  state=BATTLE
-P: ichigo/idle | flip=True | смотрит RIGHT ✓ | ожид. RIGHT (лицом к врагу) | act=idle 5/8
-E: samurai/idle | flip=False | смотрит LEFT ✓ | ожид. LEFT (лицом к врагу) | act=idle 5/8
+=== Pockie RPG — F9 facing report | 2026-09-09 19:38:57 ===
+F9 FACING v207.0  state=MAP
+P: — (аниматор не создан)
+E: — (аниматор не создан)

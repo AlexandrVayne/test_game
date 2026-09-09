@@ -117,12 +117,33 @@ class TowerBoss:
 #   18003 = Яд (Poison Dart — poison)
 #   14002 = Купол (Crystal Shield — shield)
 
+# ---------------------------------------------------------------------------
+# Stage 213 — ЛАС НОЧЕС: этажи 1-10 (первые 10 врагов, данные оригинала).
+# Явное соответствие этаж → enemy_id из ENEMY_DB (все — с exact-статами,
+# поэтому множители этажей ниже для них НЕ действуют — данные точные).
+# Строитель ниже подхватывает словарь для этажей 1-9; этаж 10 — босс
+# (TowerBoss ниже, enemy_id=ln_rei_6, имя «Рэй»).
+# ---------------------------------------------------------------------------
+
+LN_FLOOR_ENEMIES: dict[int, str] = {
+    1: "ln_rudobon_1",
+    2: "ln_hollow_1",
+    3: "ln_rudobon_2",
+    4: "ln_hollow_2",
+    5: "ln_rudobon_3",
+    6: "ln_hollow_4",
+    7: "ln_rudobon_4",
+    8: "ln_hollow_5",
+    9: "ln_rudobon_6",
+}
+
+
 TOWER_BOSSES: dict[int, TowerBoss] = {
     10: TowerBoss(
         boss_id="tower_boss_10",
         floor=10,
-        display_name="Страж льда",
-        enemy_id="samurai_1",
+        display_name="Рэй",
+        enemy_id="ln_rei_6",
         skills=(12006,),
         modifiers=("boss_fast_start",),
         description="Первый страж башни. Быстро начинает бой.",
@@ -297,15 +318,30 @@ def _build_floors() -> dict[int, TowerFloor]:
             # Normal floor: pick enemy from cycle, scale by floor.
             cycle_idx = (floor - 1) // 10
             cycle_idx = min(cycle_idx, len(normal_enemy_cycle) - 1)
+            # Rewards scale with floor.
+            gold = 20 + floor * 3
+            shards = 10 + floor // 3
+            xp = 30 + floor * 5
+            # Stage 213 — этажи 1-9 Лас Ночес: явные враги с exact-статами.
+            # Множители 1.0 (exact-статы трогать нельзя — данные оригинала).
+            if floor in LN_FLOOR_ENEMIES:
+                enemy_id = LN_FLOOR_ENEMIES[floor]
+                floors[floor] = TowerFloor(
+                    floor=floor,
+                    enemy_id=enemy_id,
+                    is_boss=False,
+                    recommended_level=max(1, floor),
+                    hp_multiplier=1.0,
+                    attack_multiplier=1.0,
+                    first_clear_reward=TowerReward(gold=gold, tower_shards=shards, xp=xp),
+                    repeat_reward=TowerReward(gold=gold // 3, tower_shards=shards // 4, xp=xp // 4),
+                )
+                continue
             enemy_id = normal_enemy_cycle[cycle_idx]
             # Scale HP/atk gently with floor (within the 10-floor bracket).
             bracket_pos = (floor % 10) if (floor % 10) != 0 else 10
             hp_mul = 1.0 + (bracket_pos - 1) * 0.08      # +8% per floor in bracket
             atk_mul = 1.0 + (bracket_pos - 1) * 0.05     # +5% per floor in bracket
-            # Rewards scale with floor.
-            gold = 20 + floor * 3
-            shards = 10 + floor // 3
-            xp = 30 + floor * 5
             floors[floor] = TowerFloor(
                 floor=floor,
                 enemy_id=enemy_id,

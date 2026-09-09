@@ -43,6 +43,23 @@ GEAR_SLOT_PLACEHOLDER_IDS: dict[str, str] = {
 GEAR_SLOT_PLACEHOLDER_ALPHA: int = 52
 
 
+def _draw_dashed_rect(surface: pygame.Surface, color, rect: pygame.Rect,
+                      dash: int = 5, gap: int = 4, width: int = 1) -> None:
+    """Stage 212 — пунктирная рамка (pygame рисует только сплошные)."""
+    step = max(1, dash + gap)
+    x, y, w, h = rect.x, rect.y, rect.w, rect.h
+    for i in range(0, w, step):
+        pygame.draw.line(surface, color, (x + i, y),
+                         (x + min(i + dash, w - 1), y), width)
+        pygame.draw.line(surface, color, (x + i, y + h - 1),
+                         (x + min(i + dash, w - 1), y + h - 1), width)
+    for j in range(0, h, step):
+        pygame.draw.line(surface, color, (x, y + j),
+                         (x, y + min(j + dash, h - 1)), width)
+        pygame.draw.line(surface, color, (x + w - 1, y + j),
+                         (x + w - 1, y + min(j + dash, h - 1)), width)
+
+
 class InventoryRendererMixin:
     """Renders the inventory + equipment modal and handles drag-and-drop.
 
@@ -66,9 +83,18 @@ class InventoryRendererMixin:
         векторный, рендерится под фактический размер). Вкладки-страницы
         1..10 (римские заменили арабские — 10 табов шириной 30px).
         """
+        from pockie_rpg.config import INV_FLIGHT_MS
         from pockie_rpg.data.item_db import get_equipment
 
         # Stage 36 — no background dimming (user request).
+
+        # Stage 212 — истёкшие «полёты» иконок убираются (ячейка рисуется).
+        if getattr(self, "_inv_flights", None):
+            now_ms = pygame.time.get_ticks()
+            self._inv_flights = [
+                f for f in self._inv_flights
+                if now_ms - f["t0"] < INV_FLIGHT_MS
+            ]
 
         modal_w = 491   # Stage 167 — сетка 12×27 (335) + панель 118 (было 624: 447+147)
         modal_h = 541   # Stage 145 — сетка 8×27 (231)
@@ -357,21 +383,26 @@ class InventoryRendererMixin:
         # Stage 28/145 — layout: МИНИ-СЛОТЫ 16×8; спаны предметов:
         # оружие 2×3, броня 2×2, кольца/амулеты/расходники 1×1 (item_span).
         # Stage 148 — STICKY-LAYOUT: «прилипающие» позиции.
-        # Stage 164 — якорная память — СПИСОК позиций на item_id (раньше —
-        # одна позиция на id). ДУБЛИКАТЫ (6× suit_ichigo из стартового
-        # набора) делили один якорь: любой drag перезаписывал его, и ВСЕ
-        # копии пересортировывались (жалоба пользователя). Теперь каждая
-        # копия держит свою позицию: drag обновляет позицию ТОЛЬКО
-        # перетащенного экземпляра (по его текущей клетке layout'а),
-        # чужие не двигаются. «Сорт» — по-прежнему единственный
-        # авто-перепаковщик (чистит память целиком).
+        # Stage 164 — якорная память — СПИСОК позиций на item_id (дубликаты
+        # держат по клетке каждая копия).
+        # Stage 211 — память ПОСТРАНИЧНА (dict[item_id][page] -> [клетки]) и
+        # ПОДДЕРЖИВАЕТСЯ ТОЧНОЙ: после любого drag/ухода предмета список
+        # = фактические клетки копий. Раньше «протухшие» свободные якоря
+        # (equip/продажа/уход со страницы не чистили их) перехватывались
+        # pass-1 — предмет сам перескакивал на старую клетку и крал клетку,
+        # куда пользователь бросил другой предмет (репорт: «не могу
+        # перенести на свободную ячейку — предмет уезжает в другие»).
+        # «Сорт» — по-прежнему единственный авто-перепаковщик.
         from pockie_rpg.config import item_span
         if not hasattr(self, "_inv_item_anchor_memory"):
-            self._inv_item_anchor_memory: dict[str, list[tuple[int, int]]] = {}
+            self._inv_item_anchor_memory: dict[str, dict[int, list[tuple[int, int]]]] = {}
+        if not hasattr(self, "_inv_anchor_fresh"):
+            self._inv_anchor_fresh: set[str] = set()
         anchor_memory = self._inv_item_anchor_memory
 
         occupied: set[tuple[int, int]] = set()
         inv_layout: list[tuple[int, pygame.Rect, tuple[int, int]]] = []  # (slot_idx, rect, span(w,h))
+        placed_cells: dict[str, list[tuple[int, int]]] = {}
 
         def _try_place(slot_idx: int, item_id: str, force_col: int | None = None,
                        force_row: int | None = None, remember: bool = False) -> bool:
@@ -390,6 +421,7 @@ class InventoryRendererMixin:
                     for dx in range(span_w):
                         for dy in range(span_h):
                             occupied.add((force_col + dx, force_row + dy))
+                    placed_cells.setdefault(item_id, []).append((force_col, force_row))
                     return True
                 return False
             for row in range(inv_max_rows - span_h + 1):
@@ -404,6 +436,7 @@ class InventoryRendererMixin:
                         for dx in range(span_w):
                             for dy in range(span_h):
                                 occupied.add((col + dx, row + dy))
+                        placed_cells.setdefault(item_id, []).append((col, row))
                         if remember:
                             # Stage 164 — список позиций: КАЖДАЯ копия (в т.ч.
                             # дубликаты) запоминает свою клетку.
@@ -414,8 +447,29 @@ class InventoryRendererMixin:
         # 1) Предметы с якорями из ПАМЯТИ ПО item_id — на свои прежние
         #    визуальные позиции. Stage 164 — якорей может быть несколько
         #    (дубликаты): берём первую свободную позицию из списка.
+        #    Stage 211 — ВАЛИДАЦИЯ по предыдущему кадру: якорь, где копия НЕ
+        #    стояла в прошлом кадре (и не записан свежим дропом), — «протухший»
+        #    и вырезается ДО раскладки. Это исключает кражу клетки у свежего
+        #    дропа другим предметом (pass-1 идёт по порядку данных) даже при
+        #    удалениях в обход UI (синтез бафов, квесты и т.п.). На первом
+        #    кадре/после смены страницы — без валидации (прилипание к
+        #    сохранённым позициям страницы).
+        prev_cells: dict[str, set[tuple[int, int]]] | None = getattr(
+            self, "_inv_prev_cells", None)
+        page_stable = (prev_cells is not None
+                       and getattr(self, "_inv_layout_page", None)
+                       == self._inv_current_page)
+        fresh_ids = self._inv_anchor_fresh
         for slot_idx, item_id in page_items:
-            for anchor in anchor_memory.get(item_id, ()):
+            anchors = anchor_memory.get(item_id, {}).get(
+                self._inv_current_page, ())
+            if page_stable and item_id not in fresh_ids and anchors:
+                allowed = prev_cells.get(item_id, set())
+                kept = [a for a in anchors if a in allowed]
+                if kept != list(anchors):
+                    anchor_memory[item_id][self._inv_current_page] = kept
+                anchors = kept
+            for anchor in anchors:
                 if _try_place(slot_idx, item_id, anchor[0], anchor[1]):
                     break
         # 2) Остальные — авто (первый подходящий угол); Stage 148 — позиция
@@ -424,6 +478,11 @@ class InventoryRendererMixin:
             if any(entry[0] == slot_idx for entry in inv_layout):
                 continue
             _try_place(slot_idx, item_id, remember=True)
+
+        # Stage 211 — снимок «кто где стоит» для валидации след. кадра.
+        self._inv_prev_cells = {k: set(v) for k, v in placed_cells.items()}
+        self._inv_layout_page = self._inv_current_page
+        self._inv_anchor_fresh.clear()
 
         # Store inventory layout for drag hit-testing.
         self._inv_layout = inv_layout
@@ -444,11 +503,16 @@ class InventoryRendererMixin:
             my_rel = self._mouse_pos[1] - inv_grid_y
             anchor_col = int(mx_rel // (inv_cell + inv_gap))
             anchor_row = int(my_rel // (inv_cell + inv_gap))
+            # Stage 211 — клэмп якоря к краю сетки: спан должен влезать.
+            # Раньше у правого/нижнего края призрак обрезался, а дроп молча
+            # отменялся («не могу положить куда хочу»). Теперь зона призрака
+            # = фактическая позиция дропа.
+            anchor_col = max(0, min(anchor_col, inv_cols - d_span_w))
+            anchor_row = max(0, min(anchor_row, inv_max_rows - d_span_h))
             if 0 <= anchor_col < inv_cols and 0 <= anchor_row < inv_max_rows:
                 cells = [
                     (anchor_col + dx, anchor_row + dy)
                     for dx in range(d_span_w) for dy in range(d_span_h)
-                    if anchor_col + dx < inv_cols and anchor_row + dy < inv_max_rows
                 ]
                 # Чужие предметы в зоне? Якорь (клетка под курсором) на чужом
                 # предмете → СВАП с ним; якорь на пустой клетке, но спан цепляет
@@ -506,11 +570,30 @@ class InventoryRendererMixin:
                 pygame.draw.rect(self.screen, (31, 31, 34), srect, border_radius=4)
                 pygame.draw.rect(self.screen, (50, 50, 55), srect, 1, border_radius=4)
 
+        # Stage 212 — «ДОМАШНЯЯ» клетка источника при drag: пунктирная рамка
+        # на месте, откуда предмет взят (источник в сетке не рисуется, его
+        # клетки — occupied и пропускаются фоном: без подсветки там «дыра”).
+        _home = getattr(self, "_inv_drag_home_rect", None)
+        if (self._drag_item_id is not None and _home is not None
+                and getattr(self, "_inv_drag_home_page", None)
+                == self._inv_current_page):
+            pygame.draw.rect(self.screen, (39, 39, 44), _home, border_radius=4)
+            _draw_dashed_rect(
+                self.screen, (122, 122, 132), _home,
+                dash=max(1, self._su(5)), gap=max(1, self._su(4)),
+                width=max(1, self._su(1)),
+            )
+
         # Draw items.
         # Stage 64 — read item_id from the live page_slots so any drag mutation
         # is reflected immediately on the next render.
         # Stage 146 — предмет-источник не рисуется; Stage 147 — предмет-ЦЕЛЬ
         # свапа подсвечивается СИНЕЙ РАМКОЙ (якорь drag на нём, спаны равны).
+        # Stage 212 — слоты «в полёте» рисуются пустыми (иконка доезжает).
+        flight_suppress: set[int] = {
+            f["suppress"] for f in getattr(self, "_inv_flights", ())
+            if f["page"] == self._inv_current_page
+        }
         for slot_idx, rect, span in inv_layout:
             entry = page_slots[slot_idx]
             if entry is None:
@@ -518,6 +601,11 @@ class InventoryRendererMixin:
             item_id = self.player.slot_item_id(entry)
             if item_id is None:
                 continue  # defensive: malformed stack slot.
+            if slot_idx in flight_suppress:
+                pygame.draw.rect(self.screen, (45, 45, 50), rect, border_radius=4)
+                pygame.draw.rect(self.screen, (82, 82, 91), rect, 1,
+                                 border_radius=4)
+                continue
             is_drag_source = (slot_idx == drag_source_inv_idx)
             is_hover = rect.collidepoint(self._mouse_pos)
             if is_drag_source:
@@ -737,6 +825,25 @@ class InventoryRendererMixin:
                 marker = pygame.Surface((swap_rect.w, self._su(6)), pygame.SRCALPHA)
                 marker.fill((96, 165, 250, 230))
                 self.screen.blit(marker, (swap_rect.x, swap_rect.y - self._su(4)))
+
+        # Stage 212 — «полёт» иконок после дропа (поверх содержимого окна):
+        # ease-out из точки курсора в целевую ячейку, INV_FLIGHT_MS.
+        for fl in getattr(self, "_inv_flights", ()):
+            if fl["page"] != self._inv_current_page:
+                continue
+            _p = (pygame.time.get_ticks() - fl["t0"]) / max(1, INV_FLIGHT_MS)
+            if _p >= 1.0:
+                continue
+            _e = 1.0 - (1.0 - _p) * (1.0 - _p)
+            _fx, _fy = fl["from"]
+            _tx, _ty = fl["to"]
+            fl_rect = pygame.Rect(
+                int(_fx + (_tx - _fx) * _e), int(_fy + (_ty - _fy) * _e),
+                fl["w"], fl["h"],
+            )
+            self._blit_gear_icon(fl["gear"], fl_rect)
+            pygame.draw.rect(self.screen, (234, 179, 8), fl_rect, 1,
+                             border_radius=4)
 
     def _blit_panel_gradient(self, rect: pygame.Rect) -> None:
         """Stage 152 — вертикальная виньетка панели (кэш по размеру rect).
@@ -1230,10 +1337,11 @@ class InventoryRendererMixin:
     _INV_ANCHOR_CAP = 16  # защита от неограниченного роста списка позиций
 
     def _inv_anchor_positions(self, item_id: str) -> list[tuple[int, int]]:
-        mem = self._inv_item_anchor_memory
-        lst = mem.get(item_id)
+        """Якоря item_id на ТЕКУЩЕЙ странице (Stage 211 — память постранична)."""
+        per_page = self._inv_item_anchor_memory.setdefault(item_id, {})
+        lst = per_page.get(self._inv_current_page)
         if lst is None:
-            mem[item_id] = lst = []
+            per_page[self._inv_current_page] = lst = []
         return lst
 
     def _inv_anchor_add(self, item_id: str, pos: tuple[int, int]) -> None:
@@ -1242,31 +1350,72 @@ class InventoryRendererMixin:
             lst.append(pos)
         del lst[self._INV_ANCHOR_CAP:]
 
-    def _inv_anchor_remove(self, item_id: str, pos: tuple[int, int]) -> None:
-        """Убрать позицию копии item_id из якорной памяти.
+    def _inv_anchor_rebuild(self, item_id: str,
+                            positions: list[tuple[int, int]]) -> None:
+        """Stage 211 — якоря item_id на текущей странице = ТОЧНЫЙ набор клеток.
 
-        Stage 164 — вызывается, когда предмет ПОКИДАЕТ инвентарь (в слот
-        синтеза): без этого дубликат занимал освободившуюся позицию и
-        остальные визуально пересортировывались.
+        Ключевой инвариант анти-телепорта: в памяти не остаётся «протухших»
+        свободных позиций — pass-1 не может увести предмет со свежей клетки
+        дропа или украсть клетку у только что брошенного другого предмета
+        (репорт: «предмет автоматически перемещается в другие ячейки»).
         """
-        lst = self._inv_item_anchor_memory.get(item_id)
-        if lst and pos in lst:
-            lst.remove(pos)
+        seen: set[tuple[int, int]] = set()
+        uniq: list[tuple[int, int]] = []
+        for p in positions:
+            if p not in seen:
+                seen.add(p)
+                uniq.append(p)
+        self._inv_item_anchor_memory.setdefault(item_id, {})[
+            self._inv_current_page] = uniq[:self._INV_ANCHOR_CAP]
+        # Stage 211 — свежеперестроенные списки не валидируются прошлым
+        # кадром (дроп произошёл МЕЖДУ кадрами: новой клетки там ещё нет).
+        if hasattr(self, "_inv_anchor_fresh"):
+            self._inv_anchor_fresh.add(item_id)
 
-    def _inv_anchor_move(self, item_id: str, old_pos: tuple[int, int],
-                         new_pos: tuple[int, int]) -> None:
-        """Переместить позицию копии item_id: old_pos → new_pos.
+    def _inv_anchor_forget_page(self, item_id: str, page: int) -> None:
+        """Stage 211 — забыть якоря item_id на конкретной странице."""
+        per_page = self._inv_item_anchor_memory.get(item_id)
+        if per_page is not None:
+            per_page.pop(page, None)
 
-        old_pos ищется по ТЕКУЩЕЙ клетке layout'а — для дубликатов это
-        однозначно идентифицирует перетащенный экземпляр (позиции копий
-        различны), чужие копии не затрагиваются.
+    def _inv_copy_cells(self, item_id: str,
+                        exclude_idx: int | None = None) -> list[tuple[int, int]]:
+        """Stage 211 — текущие клетки (col, row) копий item_id на странице."""
+        gx, gy, _cols, gap, cell, _rows = self._inv_grid_params
+        page_slots = self.player.inv_page_slots(self._inv_current_page)
+        cells: list[tuple[int, int]] = []
+        for s_idx, s_rect, _s in self._inv_layout:
+            if s_idx == exclude_idx:
+                continue
+            if self.player.slot_item_id(page_slots[s_idx]) == item_id:
+                cells.append(((s_rect.x - gx) // (cell + gap),
+                              (s_rect.y - gy) // (cell + gap)))
+        return cells
+
+    def _inv_spawn_flight(self, item_id: str, from_pos: tuple[int, int],
+                          to_rect: pygame.Rect, suppress_idx: int) -> None:
+        """Stage 212 — анимация «полёта» иконки после дропа (~INV_FLIGHT_MS).
+
+        Дроп читается глазами: иконка доезжает из точки курсора до целевой
+        ячейки (ease-out), а слот suppress_idx на это время рисуется пустым
+        (flight_suppress в рендере), чтобы не было мгновенного прыжка.
         """
-        lst = self._inv_anchor_positions(item_id)
-        if old_pos in lst:
-            lst.remove(old_pos)
-        if new_pos not in lst:
-            lst.append(new_pos)
-        del lst[self._INV_ANCHOR_CAP:]
+        gear = (self.player.get_item_definition(item_id)
+                if hasattr(self, "player") else None)
+        if gear is None:
+            return
+        if not hasattr(self, "_inv_flights"):
+            self._inv_flights = []
+        self._inv_flights.append({
+            "gear": gear,
+            "page": self._inv_current_page,
+            "from": (int(from_pos[0]), int(from_pos[1])),
+            "to": (to_rect.x, to_rect.y),
+            "w": to_rect.w,
+            "h": to_rect.h,
+            "t0": pygame.time.get_ticks(),
+            "suppress": suppress_idx,
+        })
 
     def _try_start_drag(self, pos: tuple[int, int]) -> bool:
         """Check if the cursor is on a draggable item; start dragging if so.
@@ -1290,6 +1439,8 @@ class InventoryRendererMixin:
                 if item_id is not None:
                     self._drag_item_id = item_id
                     self._drag_source = ("gear", slot_name)
+                    # Stage 212 — drag из гир-слота: «домашней» клетки нет.
+                    self._inv_drag_home_rect = None
                     return True
                 return False  # clicked on an empty slot — don't dispatch click
 
@@ -1306,6 +1457,9 @@ class InventoryRendererMixin:
                         # even if the player switches tabs mid-drag (though
                         # _set_inv_page resets drag state on tab switch anyway).
                         self._drag_source = ("inv", slot_idx, self._inv_current_page)
+                        # Stage 212 — «домашняя» клетка: пунктир при drag.
+                        self._inv_drag_home_rect = rect.copy()
+                        self._inv_drag_home_page = self._inv_current_page
                         return True
                 return False
 
@@ -1340,6 +1494,8 @@ class InventoryRendererMixin:
         # Clear drag state first (so render returns to normal next frame).
         self._drag_item_id = None
         self._drag_source = None
+        # Stage 212 — пунктир «домашней» клетки живёт только пока drag.
+        self._inv_drag_home_rect = None
         if item_id is None or source is None:
             return
         if not hasattr(self, "_gear_layout") or not hasattr(self, "_inv_layout"):
@@ -1394,16 +1550,21 @@ class InventoryRendererMixin:
                     return
                 if getattr(self, attr, None) is not None:
                     return  # слот занят — дроп игнорируется.
-                # Stage 164 — якорь уходящего предмета снимается: иначе
-                # дубликат занимал освободившуюся позицию и остальные
-                # предметы визуально пересортировывались.
+                # Stage 164 — якорь уходящего предмета снимается; Stage 211 —
+                # ТОЧНАЯ перестройка списка (убирает и протухшие позиции той
+                # же записи). Для БАФОВ якорь НЕ трогается: стак остаётся в
+                # ячейке (иначе перескакивал бы в первый свободный угол).
                 if (src_page == self._inv_current_page
-                        and hasattr(self, "_inv_item_anchor_memory")):
+                        and hasattr(self, "_inv_item_anchor_memory")
+                        and not is_buff_item):
                     for s_idx, s_rect, _s in self._inv_layout:
                         if s_idx == src_idx:
                             c = (s_rect.x - self._inv_grid_params[0]) // (self._inv_grid_params[4] + self._inv_grid_params[3])
                             r = (s_rect.y - self._inv_grid_params[1]) // (self._inv_grid_params[4] + self._inv_grid_params[3])
-                            self._inv_anchor_remove(item_id, (c, r))
+                            self._inv_anchor_rebuild(
+                                item_id,
+                                [p for p in self._inv_copy_cells(item_id)
+                                 if p != (c, r)])
                             break
                 # Физический перенос: костюм — ячейка освобождается; баф —
                 # списывается 1 ШТ. из стака (стак остаётся в ячейке).
@@ -1438,6 +1599,11 @@ class InventoryRendererMixin:
                     if not placed:
                         # Слот занят/нет места — вернуть в инвентарь.
                         self.player.inv_add(item_id)
+                    elif hasattr(self, "_inv_item_anchor_memory"):
+                        # Stage 211 — костюм покинул сетку: якоря страницы
+                        # забываются (анти-телепорт при возврате).
+                        self._inv_item_anchor_memory.get(item_id, {}).pop(
+                            self._inv_current_page, None)
                     self._save_player()
                     return
 
@@ -1506,23 +1672,48 @@ class InventoryRendererMixin:
                         tgt_item = page_slots[slot_idx]
                         a_pos = None
                         b_pos = None
+                        a_rect = None
+                        b_rect = None
                         for s_idx, s_rect, _s in self._inv_layout:
                             c = (s_rect.x - self._inv_grid_params[0]) // (self._inv_grid_params[4] + self._inv_grid_params[3])
                             r = (s_rect.y - self._inv_grid_params[1]) // (self._inv_grid_params[4] + self._inv_grid_params[3])
                             if s_idx == slot_idx:
                                 b_pos = (c, r)
+                                b_rect = s_rect
                             elif s_idx == src_idx:
                                 a_pos = (c, r)
+                                a_rect = s_rect
                         tgt_id = self.player.slot_item_id(tgt_item)
                         if tgt_id == item_id:
                             pass  # обмен двух копий одного предмета — позиции те же.
                         elif a_pos is not None and b_pos is not None:
-                            self._inv_anchor_move(item_id, a_pos, b_pos)
+                            # Stage 211 — ТОЧНАЯ перестройка якорей ОБЕИХ
+                            # сторон: список = фактические клетки копий после
+                            # свапа. Прежний _inv_anchor_move оставлял
+                            # протухшие позиции — pass-1 телепортировал
+                            # предметы и крал клетки свежих дропов.
+                            self._inv_anchor_rebuild(
+                                item_id,
+                                self._inv_copy_cells(item_id,
+                                                     exclude_idx=src_idx)
+                                + [b_pos])
                             if tgt_id is not None:
-                                self._inv_anchor_move(tgt_id, b_pos, a_pos)
+                                self._inv_anchor_rebuild(
+                                    tgt_id,
+                                    self._inv_copy_cells(tgt_id,
+                                                         exclude_idx=slot_idx)
+                                    + [a_pos])
                         page_slots[src_idx], page_slots[slot_idx] = (
                             page_slots[slot_idx], page_slots[src_idx]
                         )
+                        # Stage 212 — «полёт»: брошенный — курсор → клетка цели,
+                        # вытесненный — клетка цели → клетка источника.
+                        if b_rect is not None:
+                            self._inv_spawn_flight(item_id, pos, b_rect,
+                                                   slot_idx)
+                            if tgt_id is not None and a_rect is not None:
+                                self._inv_spawn_flight(
+                                    tgt_id, b_rect.topleft, a_rect, src_idx)
                         self._save_player()
                         return
                     # Stage 67 — cross-page swap: move item from source page
@@ -1540,19 +1731,34 @@ class InventoryRendererMixin:
                         return  # Stage 148 — спаны разные, свап невозможен.
                     page_slots[slot_idx] = src_item
                     src_slots[src_idx] = tgt_item  # None | str | dict-стак.
-                    # Stage 148 — якорная память: у предмета-цели (уезжает на
-                    # другую страницу) якорь снимается — на новой странице он
-                    # «прилипнет» заново; перетащенный предмет получает
-                    # позицию цели на текущей странице.
+                    # Stage 212 — «полёт»: пришедший предмет доезжает от
+                    # курсора до клетки цели (уехавший — на другой странице,
+                    # его полёт не виден).
+                    self._inv_spawn_flight(item_id, pos, rect, slot_idx)
+                    # Stage 148/211 — якорная память постранична и точна:
+                    # цель (уезжает на src_page) теряет якоря текущей
+                    # страницы, но НЕ остальных своих копий; пришедший
+                    # получает клетку цели. Stage 183-баг: в якоря уходил
+                    # СЫРОЙ слот (dict-стак) → TypeError unhashable.
                     if hasattr(self, "_inv_item_anchor_memory"):
-                        if tgt_id is not None:
-                            self._inv_anchor_positions(tgt_id).clear()
+                        tgt_cell = None
                         for s_idx, s_rect, _s in self._inv_layout:
                             if s_idx == slot_idx:
                                 c = (s_rect.x - self._inv_grid_params[0]) // (self._inv_grid_params[4] + self._inv_grid_params[3])
                                 r = (s_rect.y - self._inv_grid_params[1]) // (self._inv_grid_params[4] + self._inv_grid_params[3])
-                                self._inv_anchor_add(src_item, (c, r))
+                                tgt_cell = (c, r)
                                 break
+                        if tgt_id is not None:
+                            self._inv_anchor_rebuild(
+                                tgt_id, self._inv_copy_cells(tgt_id))
+                        if src_id is not None:
+                            self._inv_anchor_rebuild(
+                                src_id,
+                                self._inv_copy_cells(src_id)
+                                + ([tgt_cell] if tgt_cell else []))
+                            if not any(self.player.slot_item_id(e) == src_id
+                                       for e in src_slots):
+                                self._inv_anchor_forget_page(src_id, src_page)
                     self._save_player()
                     return
                 if source[0] == "gear":
@@ -1577,13 +1783,15 @@ class InventoryRendererMixin:
                 gx, gy, cols, gap, cell, rows = self._inv_grid_params
                 col = int((pos[0] - gx) // (cell + gap))
                 row = int((pos[1] - gy) // (cell + gap))
-                if not (0 <= col < cols and 0 <= row < rows):
-                    return
                 drag_item = self.player.get_item_definition(item_id)
                 from pockie_rpg.config import item_span as _item_span_cfg
                 span = _item_span_cfg(drag_item) if drag_item else (1, 1)
-                # Зона влезает в сетку?
-                if col + span[0] > cols or row + span[1] > rows:
+                # Stage 211 — клэмп к краю вместо немой отмены: дроп у
+                # правого/нижнего края раньше просто не срабатывал. Призрак
+                # клэмпится так же (рендер) — зона = фактическая позиция.
+                col = max(0, min(col, cols - span[0]))
+                row = max(0, min(row, rows - span[1]))
+                if not (0 <= col < cols and 0 <= row < rows):
                     return
                 # Занятость: считаем по layout (предметы страницы), исключая источник.
                 zone_cells = [
@@ -1606,6 +1814,13 @@ class InventoryRendererMixin:
                             if (sc + dx, sr + dy) in zone_cells and (sc + dx, sr + dy) not in src_zone:
                                 return  # место занято другим предметом.
                 # Перемещение: якорь в память по item_id.
+                # Stage 212 — целевой rect полёта = фактическая клетка дропа
+                # (клэмпнутая) со спаном предмета.
+                flight_rect = pygame.Rect(
+                    gx + col * (cell + gap), gy + row * (cell + gap),
+                    cell * span[0] + gap * (span[0] - 1),
+                    cell * span[1] + gap * (span[1] - 1),
+                )
                 if src_page != self._inv_current_page:
                     # Кросс-страница: забрать из источника, положить в первый
                     # пустой data-слот текущей страницы с якорем.
@@ -1620,22 +1835,32 @@ class InventoryRendererMixin:
                         return
                     tgt_slots[free_idx] = src_entry
                 if hasattr(self, "_inv_item_anchor_memory"):
-                    # Stage 164 — перемещение позиции КОПИИ: old_pos = текущая
-                    # клетка источника в layout'е (для дубликатов — только
-                    # перетащенный экземпляр меняет позицию).
-                    src_pos = None
-                    for s_idx, s_rect, _s in self._inv_layout:
-                        if s_idx == src_idx:
-                            c = (s_rect.x - self._inv_grid_params[0]) // (self._inv_grid_params[4] + self._inv_grid_params[3])
-                            r = (s_rect.y - self._inv_grid_params[1]) // (self._inv_grid_params[4] + self._inv_grid_params[3])
-                            src_pos = (c, r)
-                            break
-                    if src_page == self._inv_current_page and src_pos is not None:
-                        self._inv_anchor_move(item_id, src_pos, (col, row))
+                    # Stage 211 — ТОЧНАЯ перестройка: список якорей item_id =
+                    # клетки остальных копий + клетка дропа. Никаких
+                    # «протухших» позиций — pass-1 не уведёт предмет со
+                    # свежей клетки дропа (суть жалобы пользователя).
+                    if src_page == self._inv_current_page:
+                        self._inv_anchor_rebuild(
+                            item_id,
+                            self._inv_copy_cells(item_id,
+                                                 exclude_idx=src_idx)
+                            + [(col, row)])
                     else:
-                        # Кросс-страница: источника нет в layout'е текущей
-                        # страницы — просто фиксируем новую позицию.
-                        self._inv_anchor_add(item_id, (col, row))
+                        # Кросс-страница: пришедшая копия получает клетку
+                        # дропа; остальным копиям страницы якоря не трогаются.
+                        self._inv_anchor_rebuild(
+                            item_id,
+                            self._inv_copy_cells(item_id) + [(col, row)])
+                        if not any(self.player.slot_item_id(e) == item_id
+                                   for e in src_slots):
+                            self._inv_anchor_forget_page(item_id, src_page)
+                # Stage 212 — «полёт» в клетку дропа: гасим ячейку, где
+                # предмет появится (тот же слот при пере-якоре; новый
+                # free_idx при кросс-страничном переносе).
+                self._inv_spawn_flight(
+                    item_id, pos, flight_rect,
+                    src_idx if src_page == self._inv_current_page else free_idx,
+                )
                 self._save_player()
                 return
             if source[0] == "gear":
@@ -1658,14 +1883,27 @@ class InventoryRendererMixin:
         src_item = src_slots[src_idx]
         if src_item is None:
             return
+        sid = self.player.slot_item_id(src_item)
+        moved = False
         # Find first empty slot on dest_page.
         for i, s in enumerate(dest_slots):
             if s is None:
                 dest_slots[i] = src_item
                 src_slots[src_idx] = None
-                return
-        # dest_page is full → swap with slot 0 (rare case, keeps nothing lost).
-        dest_slots[0], src_slots[src_idx] = src_item, dest_slots[0]
+                moved = True
+                break
+        if not moved:
+            # dest_page is full → swap with slot 0 (rare case, keeps nothing lost).
+            dest_slots[0], src_slots[src_idx] = src_item, dest_slots[0]
+            moved = True
+        # Stage 211 — копия ушла со страницы: если копий там не осталось,
+        # забыть якоря этой страницы (иначе «протухший» якорь телепортировал
+        # бы предмет при возврате на страницу).
+        if (moved and sid is not None
+                and hasattr(self, "_inv_item_anchor_memory")
+                and not any(self.player.slot_item_id(e) == sid
+                            for e in src_slots)):
+            self._inv_item_anchor_memory.get(sid, {}).pop(src_page, None)
 
     def _drop_to_slot(self, item_id: str, source: tuple, target_slot: str) -> None:
         """Move an item from its source into a gear slot.
@@ -1687,6 +1925,11 @@ class InventoryRendererMixin:
                 item_id,
                 source_slot=(src_page, src_idx),
             )
+            # Stage 211 — предмет покинул сетку: якоря его страницы
+            # забываются (иначе «протухший» якорь крал клетку у следующих
+            # дропов и телепортировал предмет при возврате).
+            if hasattr(self, "_inv_item_anchor_memory"):
+                self._inv_item_anchor_memory.get(item_id, {}).pop(src_page, None)
         elif source[0] == "gear":
             src_slot = source[1]
             if src_slot == target_slot:
@@ -1843,10 +2086,13 @@ class InventoryRendererMixin:
         f_body = self._su_font(13)
         f_small = self._su_font(11)
 
-        # --- заголовок: имя БЕЗ слова «Костюм» + плюс ---
+        # --- заголовок: имя БЕЗ слова «Костюм» и БЕЗ кавычек + плюс ---
+        # Stage 211 — «Костюм «Рендзи Абараи»» -> «Рендзи Абараи +0»;
+        # качество читается по цвету имени/рамки/фона (подпись тира убрана).
         name = str(outfit.get("name", "???"))
         if name.startswith("Костюм "):
             name = name[len("Костюм "):]
+        name = name.strip("«»")
         title_text = f"{name} +{plus}"
 
         req_level = outfit_synth_required_level(plus)
@@ -1922,20 +2168,14 @@ class InventoryRendererMixin:
             t_surf = f_title.render(title_text + "…", True, quality_rgb)
         self.screen.blit(t_surf, (su(tip_x + 12), su(tip_y + 10)))
 
-        # --- «Треб. уровень» + тир качества (справа, в цвете качества) ---
-        from pockie_rpg.config import COSTUME_QUALITY_RU
+        # --- «Треб. уровень» (Stage 211 — подпись тира качества УБРАНА:
+        # качество передают цвет названия, рамки и фона ячейки) ---
         req_y = tip_y + 32
         req_lbl = f_body.render("Треб. уровень", True, (160, 160, 170))
         req_val = f_body.render(str(req_level), True, (255, 255, 255))
         self.screen.blit(req_lbl, (su(tip_x + 12), su(req_y)))
         self.screen.blit(req_val, (su(tip_x + tip_w - 78) - req_val.get_width(),
                                    su(req_y)))
-        qual_lbl = f_small.render(
-            COSTUME_QUALITY_RU.get(outfit.get("quality", ""), ""),
-            True, quality_rgb)
-        self.screen.blit(qual_lbl,
-                         (su(tip_x + 12) + req_lbl.get_width() + su(10),
-                          su(req_y + 2)))
 
         # --- разделитель 1 (не заходит под иконку) ---
         pygame.draw.line(self.screen, (63, 63, 70),

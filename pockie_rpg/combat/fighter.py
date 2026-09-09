@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 
 from pockie_rpg.combat.status_manager import StatusManager
 from pockie_rpg.config import CRYSTAL_BLADE_FREEZE_DURATION
-from pockie_rpg.data.models import Role
+from pockie_rpg.data.models import EnemyExactStats, Role
 
 
 @dataclass(slots=True)
@@ -127,6 +127,8 @@ class Fighter:
         hp_mul: float = 1.0,
         atk_mul: float = 1.0,
         skills: tuple[int, ...] | None = None,
+        exact: EnemyExactStats | None = None,
+        name_override: str | None = None,
     ) -> "Fighter":
         """Build a Fighter from a Role definition.
 
@@ -140,6 +142,12 @@ class Fighter:
                 If None, defaults to role.skills (Stage 11 — the Role's
                 skill deck is the source of truth for which skills a
                 fighter of that role can use).
+            exact: Stage 213 — точные статы врага (EnemyExactStats). Заданы →
+                применяются ПОСЛЕ всех формул и множителей (hp_mul/atk_mul
+                не действуют): данные оригинала важнее локальных формул.
+            name_override: Stage 213 — отображаемое имя бойца (для exact-
+                врагов башни: HUD и панель статов показывают имя шаблона,
+                а не имя Role).
 
         Stage 14 — for the PLAYER, callers pass `tuple(player.active_skills)`
         here so the fighter's skill deck reflects the user's pre-battle
@@ -188,8 +196,28 @@ class Fighter:
         # Pierce_Rating = flat_gear only (no STR). Mobs have 0 pierce (no gear).
         _block_rating = calc_block_rating(role.strength, DEFAULT_BMV_PRICE_STR, 0)
         _pierce_rating = calc_pierce_rating(0)
+        # Stage 213 — точные статы: override ПОСЛЕ всех расчётов. Множители
+        # (hp_mul/atk_mul и множители этажей башни) на exact не действуют.
+        # А.Блок вне exact у мобов = 0 (нет снаряжения).
+        _antiblock_rating = 0
+        defense = role.defense
+        fighter_name = role.name if name_override is None else name_override
+        if exact is not None:
+            max_hp = exact.max_hp
+            max_mp = exact.max_mp
+            min_atk = exact.min_atk
+            max_atk = exact.max_atk
+            defense = exact.defense
+            _crit_rating = exact.crit
+            _tough_rating = exact.tough
+            _speed = exact.speed
+            _hit_rating = exact.hit
+            _dodge_rating = exact.dodge
+            _block_rating = exact.block
+            _pierce_rating = exact.pierce
+            _antiblock_rating = exact.antiblock
         return cls(
-            name=role.name,
+            name=fighter_name,
             role_id=role.role_id,
             is_player=is_player,
             level=level,
@@ -199,7 +227,7 @@ class Fighter:
             max_mp=max_mp,
             min_atk=min_atk,
             max_atk=max_atk,
-            defense=role.defense,
+            defense=defense,  # Stage 213 — role.defense или exact.defense
             dodge_chance=_dodge_rating,  # Stage 102 — now stores RATING (int)
             hit_chance=_hit_rating,     # Stage 102 — now stores RATING (int)
             atk_time=role.atk_time,
@@ -214,6 +242,8 @@ class Fighter:
             # Stage 104 — BLOCK & PIERCE RATINGS.
             block_rating=_block_rating,
             pierce_rating=_pierce_rating,
+            # Stage 213 — а.блок передаётся явно (0 вне exact, exact.antiblock — при нём).
+            antiblock_rating=_antiblock_rating,
         )
 
     @classmethod

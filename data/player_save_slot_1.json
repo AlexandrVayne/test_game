@@ -190,8 +190,8 @@
       "gloves_leather",
       "gloves_mitten2",
       "gloves_mitten3",
-      "gloves_mitten4",
-      "gloves_mitten5",
+      null,
+      null,
       "gloves_mitten6",
       "belt_fabric",
       "belt_jade2",
@@ -447,8 +447,8 @@
       null
     ],
     "4": [
-      null,
-      null,
+      "gloves_mitten4",
+      "gloves_mitten5",
       null,
       null,
       null,
@@ -1403,8 +1403,8 @@
   },
   "_gem_id_counter": 0,
   "active_title": "legend",
-  "world_boss_attempts": 2,
-  "world_boss_next_attempt_ts": 1788961435.5419579,
+  "world_boss_attempts": 3,
+  "world_boss_next_attempt_ts": null,
   "world_boss_hp": {
     "level": 1,
     "max_hp": 50000,
@@ -1461,12 +1461,7 @@
     null,
     null
   ],
-  "active_buffs": [
-    {
-      "buff_id": "buff_xp_150",
-      "expires_ts": 1788962603.952367
-    }
-  ],
+  "active_buffs": [],
   "window_positions": {
     "synth": [
       210,

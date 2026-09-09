@@ -455,9 +455,10 @@ EQUIPMENT_DB: dict[str, dict] = {
     # Stage 205/206 — костюм cloth14: первый костюм СО СВОИМИ анимациями боя
     # (motion_skin → config.PLAYER_MOTION_SKINS["cloth14"]). Иконка —
     # upload/icon_avatar_cloth14.s110.png; аватар userface_0_14_role.gif.
-    # Пользователь: персонаж — Ренджи АБАРАИ (не Сакура).
+    # Пользователь: персонаж — Рендзи АБАРАИ (не Сакура; Stage 211 —
+    # написание «Рендзи»).
     "suit_cloth14": {
-        "name": "Костюм «Ренджи Абараи»",
+        "name": "Костюм «Рендзи Абараи»",
         "slot": "outfit",
         "item_level": 1,
         "stats": {},
@@ -595,7 +596,7 @@ OUTFITS_DB: dict[str, dict] = {
     # (+0.8); BMV-пороги 10 силы / 21 ловкости / 12 выносливости.
     # Качество: СЕРЫЙ (тир качества костюмов — Stage 209).
     "suit_cloth14": {
-        "name": "Костюм «Ренджи Абараи»",
+        "name": "Костюм «Рендзи Абараи»",
         "type": "strength",
         "archetype": "strength_dps",
         "base_stats": {"strength": 26, "agility": 6, "stamina": 16},

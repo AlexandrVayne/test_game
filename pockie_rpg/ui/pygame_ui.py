@@ -25,6 +25,7 @@ from pockie_rpg.config import (
     COUNTDOWN_FONT_SIZE,
     FPS,
     FRAMELESS_ENABLED,
+    GAME_VERSION,
     LOG_BAR_H,
     MAX_LEVEL,
     MOB_TO_MOTION,
@@ -500,6 +501,9 @@ class PygameUI(
         self._debug_frame_ms: float = 0.0
         # Stage 208 — фейсинг-оверлей (тумблер F9): folder+flip аниматоров.
         self._facing_overlay: bool = False
+        # Stage 210 — экранная плашка после F9: полный путь репорта/ошибка
+        # (текст, остаток секунд). Видна независимо от тумблера оверлея.
+        self._facing_report_note: tuple[str, float] | None = None
         # Stage 138 — SYNTH (синтез костюмов) + WARDROBE (гардероб) — ПРАВИЛО 9.
         # Stage 164 — слоты хранят item_id (предмет физически вне инвентаря).
         # Stage 166 — _synth_result_item: результат синтеза (+N+1) ОСТАЁТСЯ
@@ -1095,6 +1099,16 @@ class PygameUI(
             # рядом с F10-панелью (в левом верхнем углу). ClickRect'ов нет.
             if self._facing_overlay:
                 self._render_facing_overlay()
+            # Stage 210 — плашка пути репорта (нажатие F9), тик + рендер.
+            if self._facing_report_note is not None:
+                self._facing_report_note = (
+                    self._facing_report_note[0],
+                    self._facing_report_note[1] - dt,
+                )
+                if self._facing_report_note[1] <= 0.0:
+                    self._facing_report_note = None
+                else:
+                    self._render_facing_report_note()
             pygame.display.flip()
 
     def _render_debug_overlay(self) -> None:
@@ -1231,7 +1245,7 @@ class PygameUI(
         rows: list[list[tuple[str, tuple[int, int, int]]]] = []
 
         rows.append([(
-            f"F9 FACING  state={self.state.name}",
+            f"F9 FACING {GAME_VERSION}  state={self.state.name}",
             amber,
         )])
 
@@ -1315,8 +1329,47 @@ class PygameUI(
             path.write_text("\n".join([header, *lines]) + "\n",
                             encoding="utf-8")
             print(f"[F9] facing report saved: {path}")
+            # Stage 210 — плашка с ПОЛНЫМ путём на экране (3с): файл не
+            # нужно искать по папкам — путь виден сразу после нажатия.
+            self._facing_report_note = (f"Репорт сохранён: {path}", 3.0)
         except Exception as exc:
             print(f"[F9] facing report FAILED: {exc}")
+            self._facing_report_note = (
+                f"Репорт НЕ сохранён: {exc}", 5.0,
+            )
+
+    def _render_facing_report_note(self) -> None:
+        """Stage 210 — плашка «Репорт сохранён: <путь>» после нажатия F9.
+
+        Рисуется в левом НИЖНЕМ углу поверх всего (F9/F10-панели сверху).
+        Репорт-файл ищется по пути из плашки, а не по папкам проекта.
+        """
+        if self._facing_report_note is None:
+            return
+        target = (
+            self._fullscreen_monitor
+            if self._fullscreen_monitor is not None
+            else self.screen
+        )
+        text, remain = self._facing_report_note
+        font = pygame.font.SysFont("consolas,dejavusansmono,couriernew", 16)
+        surf = font.render(f"{text}  ({remain:.1f}s)", True, (250, 250, 250))
+        pad = 8
+        w = surf.get_width() + pad * 2
+        h = surf.get_height() + pad * 2
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((9, 9, 11, 224))
+        target.blit(panel, (12, target.get_height() - h - 12))
+        pygame.draw.rect(
+            target,
+            (234, 179, 8),
+            pygame.Rect(12, target.get_height() - h - 12, w, h),
+            1,
+        )
+        target.blit(
+            surf,
+            (12 + pad, target.get_height() - h - 12 + pad),
+        )
 
     def _present_fullscreen(self, flip: bool = True) -> None:
         """Stage 139.3 — ВСЯ игра на весь монитор; бой — окно 60% + блюр.
@@ -1928,6 +1981,9 @@ class PygameUI(
             level=enemy.level,
             hp_mul=enemy.hp_mul,
             atk_mul=enemy.atk_mul,
+            # Stage 213 — exact-враги (пока только башня ЛН) и их имя.
+            exact=getattr(enemy, "exact", None),
+            name_override=(enemy.name if getattr(enemy, "exact", None) is not None else None),
         )
         enemy_motion_folder = MOB_TO_MOTION.get(enemy.mob_id, "samurai/idle")
         enemy_flip = self.asset_manager.needs_flip_for_enemy(
@@ -2549,6 +2605,11 @@ class PygameUI(
             hp_mul=enemy_tmpl.hp_mul * tower_floor.hp_multiplier,
             atk_mul=enemy_tmpl.atk_mul * tower_floor.attack_multiplier,
             skills=tuple(boss_skills) if boss_skills else (),
+            # Stage 213 — точные статы ЛН (этажи 1-10): множители выше на
+            # exact не действуют (override в from_role). Имя — из шаблона,
+            # чтобы HUD показывал «Рудобон»/«Рэй», а не имя Role.
+            exact=enemy_tmpl.exact,
+            name_override=(enemy_tmpl.name if enemy_tmpl.exact is not None else None),
         )
         # Apply simple pre-battle modifiers (boss_fast_start → bonus action points).
         if "boss_fast_start" in tower_floor.modifiers:
@@ -2585,6 +2646,10 @@ class PygameUI(
         self._tower_active_is_boss = tower_floor.is_boss
         self._tower_active_modifiers = tower_floor.modifiers
         self._tower_reward_applied = False
+        # Stage 213 — target_mob_id = enemy_id этажа: панель статов врага
+        # в бою башни резолвит шаблон из ENEMY_DB (раньше был stale-id
+        # последней карты-мобы или ничего).
+        self.target_mob_id = tower_floor.enemy_id
         # Close the Tower modal so it doesn't show during battle.
         self._tower_modal_open = False
         self._tower_shop_open = False
@@ -2600,18 +2665,27 @@ class PygameUI(
     def _tower_enemy_motion_folder(enemy_id: str) -> str:
         """Map a Tower floor's enemy_id to a motion folder.
 
-        Tower floors reuse existing enemies (samurai_*, flower_1). The motion
-        folder is derived from the enemy's role_id, not the enemy_id, so we
-        map by name prefix here.
+        Stage 213 — основной путь: role_id шаблона из ENEMY_DB
+        (10001 → samurai, 10002 → blue_swordsman, 10004 → black_samurai,
+        10102 → flower). Новые враги ЛН (ln_*) держат role_id=10001 —
+        визуал прежний (samurai/idle) до смены аватарок/анимаций.
+        Фолбэк — прежний парсинг суффикса имени для id вне БД.
         """
-        # flower_1 → flower/idle
-        if enemy_id.startswith("flower"):
-            return "flower/idle"
-        # samurai_1, samurai_4, samurai_7, samurai_10 → samurai/idle (role 10001)
-        # samurai_2, samurai_5, samurai_8, samurai_11 → blue_swordsman/idle (10002)
-        # samurai_3, samurai_6, samurai_9, samurai_12 → black_samurai/idle (10004)
-        # Use the legacy MOB_TO_MOTION mapping by trying common keys.
-        # Map by index: 1,4,7,10 → samurai; 2,5,8,11 → blue; 3,6,9,12 → black.
+        from pockie_rpg.data.enemy_db import ENEMY_DB
+
+        tmpl = ENEMY_DB.get(enemy_id)
+        if tmpl is not None:
+            rid = tmpl.role_id
+            if rid == 10002:
+                return "blue_swordsman/idle"
+            if rid == 10004:
+                return "black_samurai/idle"
+            if rid == 10102:
+                return "flower/idle"
+            return "samurai/idle"
+        # Legacy fallback: samurai_1, samurai_4, samurai_7, samurai_10 →
+        # samurai/idle (role 10001); _2/_5/_8/_11 → blue (10002);
+        # _3/_6/_9/_12 → black (10004).
         try:
             suffix = int(enemy_id.split("_")[-1])
         except (ValueError, IndexError):
@@ -3603,6 +3677,12 @@ class PygameUI(
             # (иначе оставался «висеть» до компакции сейва).
             if item_id.startswith("outfit_inst_"):
                 self.player.outfit_instances.pop(item_id, None)
+            # Stage 211 — предмет покинул инвентарь: якорная память чистится
+            # (как в масс-продаже Stage 148); для стаков — только когда
+            # копий не осталось (стак остаётся в своей ячейке).
+            if (hasattr(self, "_inv_item_anchor_memory")
+                    and self.player.inv_find(item_id) is None):
+                self._inv_item_anchor_memory.pop(item_id, None)
         else:
             # Check if it's equipped.
             for slot, iid in list(self.player.equipped_gear.items()):

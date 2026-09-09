@@ -134,11 +134,11 @@ src/pockie_rpg/
 ├── main.py                        (40)  entry point: pygame.init + PygameUI().run()
 │
 ├── data/                                  Layer A — frozen dataclasses + datasets
-│   ├── models.py                 (249)  Role, EnemyDef, Suit (+pose_filename, Stage 206), CharacterStats
+│   ├── models.py                 (249)  Role, EnemyDef (+exact: EnemyExactStats — Stage 213), Suit (+pose_filename, Stage 206), CharacterStats
 │   ├── roles_db.py               (213)  5 ролей (Ichigo + 4 самурая + Flower) + STARTER_SUITS (i290001 Ичиго, i290014 Рендзи Абараи) + resolve_player_suit + ENEMY_MOBS
-│   ├── enemy_db.py               (206)  13 врагов (samurai_1..12, flower_1)
+│   ├── enemy_db.py               (206)  23 врага: samurai_1..12, flower_1 + 10 врагов Лас Ночес (ln_* — точные статы оригинала через EnemyExactStats, Stage 213)
 │   ├── item_db.py               (1070)  EQUIPMENT_DB (43), OUTFITS_DB (5, поле quality — Stage 209), GEMS_DB (5), generate_item() + _GENERATOR_SPECS (Stage 169 — 1 генератор вместо 7 копипаст-функций); Stage 204: DEFAULT_GEAR_ICONS/DEFAULT_TYPE_TO_SLOT; Stage 205: suit_cloth14 с motion_skin (костюм меняет анимации игрока); Stage 209: официальные статы Абарая 26/6/16 (+1.3/+0.3/+0.8), BMV 10/21/12
-│   ├── tower_db.py               (352)  100 этажей + 10 боссов + TowerReward/Floor/Boss
+│   ├── tower_db.py               (352)  100 этажей + 10 боссов + TowerReward/Floor/Boss; Stage 213: LN_FLOOR_ENEMIES (этажи 1-9 → ln_* враги, босс 10 = «Рэй»)
 │   ├── titles_db.py              (209)  13 званий (novice..legend, tower_conqueror — Stage 170)
 │   ├── daily_quests.py            (76)  4 дейлика
 │   ├── quests_db.py              (163)  Stage 172/173 — STORY_QUESTS (4 квеста: talk_to/use_item/kill_mobs), STORY_QUEST_CHAIN, chain_prerequisites_met
@@ -254,7 +254,8 @@ _exit_battle → _exit_test_battle → quit
 ## 5. Поток боя (от старта до endgame)
 
 ### 5.1 Старт
-1. `_enter_battle()` / `_enter_tower_battle(floor)` строит `Fighter.from_player_state(player, role)` + `Fighter.from_role(role, level, hp_mul, atk_mul)`.
+1. `_enter_battle()` / `_enter_tower_battle(floor)` строит `Fighter.from_player_state(player, role)` + `Fighter.from_role(role, level, hp_mul, atk_mul, exact, name_override)`.
+   - Stage 213 — у врага с `EnemyDef.exact` (враги 1-10 ЛН) точные статы оригинала применяются ПОСЛЕ всех формул и множителей этажей (hp_mul/atk_mul на них не действуют); HUD/панель статов показывают имя шаблона.
 2. Создаёт `IdleAnimator` для обоих бойцов (загружает `idle` спрайты).
 3. Сбрасывает все battle-поля (HP/MP display, particles, overlays, countdown, endgame).
 4. `self.state = GameState.BATTLE`, `_countdown_active = True`.
