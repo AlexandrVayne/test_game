@@ -2,1080 +2,76 @@
 
 > **ЧТО случилось и план.** Контекст — 3 файла: `RULES.md` (как работать) →
 > `PROJECT_PROMPT.md` (как устроено) → этот файл. Здесь: текущая версия,
-> история stage'ей (ЕДИНСТВЕННЫЙ таймлайн — нигде не дублируется), готчи,
-> баги, константы, реестр идей, TODO.
+> история stage'ей (ЕДИНСТВЕННЫЙ таймлайн — одна строка на stage, детали
+> только для свежих), готчи, константы, реестр идей, план. Оптимизирован
+> в Stage 212: версионные блоки слиты в таймлайн, реализованные идеи
+> убраны из реестра (их результат — в таймлайне).
 
-## Текущая версия: **v205.0**
+## Текущая версия: **v207.0**
 
-**Stage 209 — статы Абарая (данные пользователя) + база качества костюмов
-(4 тира) + RUN_BACK «смотрит в сторону куда бежит» + F9-инвариант и репорт:**
-- **Статы suit_cloth14** (официальные данные пользователя, не выдуманы):
-  Сила 26 (+1.3), Ловкость 6 (+0.3), Выносливость 16 (+0.8); BMV-пороги
-  10 силы / 21 ловкости / 12 выносливости (bmv_price + legacy-алиасы);
-  growth.max: 1.7/0.5/1.1. Было 15/8/12, bmv 12/30/20, growth 1.4/0.4/0.9.
-- **Качество костюмов — база на 15+ будущих** (запрос: «будут еще 15+
-  костюмов разного качества»): 4 тира как у предметов — Grey/Blue/Purple/
-  Orange; палитры `COSTUME_QUALITY_ORDER/RU/BG/RGB` в config.py; поле
-  `"quality"` в OUTFITS_DB + EQUIPMENT_DB (нет поля = Grey). Красится
-  автоматически: фон ячейки за иконкой (`_blit_gear_icon`), рамка/полоса
-  тултипа + заголовок + тир RU-именем в строке «Треб. уровень»
-  (`_render_outfit_tooltip`), имя в гардеробе (`_render_wardrobe_modal`).
-  Тиры демо-костюмов: ichigo/cloth14 Grey, samurai_tank Blue,
-  ninja_evasion Purple, ogre_brute Orange. Инстансы синтеза наследуют
-  quality модели (dict(model) в get_item_definition).
-- **ФЕЙСИНГ RUN_BACK — пользователь вернул диагноз**: «Я ошибся — в
-  версии 204.1 анимация уже была нормально, а теперь когда Абараи
-  движется домой, он смотрит на врага (Баг) — должен смотреть в сторону
-  куда бежит». ФИКС: универсальная инверсия `seq.flip = not seq.flip`
-  на ATTACK→RUN_BACK ВОССТАНОВЛЕНА для всех (Stage 208 спец-кейс
-  «скин flip=False» удалён) — боец бежит домой ЛИЦОМ ПО НАПРАВЛЕНИЮ
-  движения (P → LEFT, E → RIGHT). База скина по-прежнему без зеркала
-  (set_action/base_flip/spawn → False, ассеты смотрят ВПРАВО на врага).
-- **F9-ИНВАРИАНТ** (пункт 3 запроса): оверлей показывает НЕ только факт,
-  но и ОЖИДАНИЕ: `P: папка | flip=X | смотрит Y ✓ | ожид. Z (лицом к
-  врагу / бежит домой) | act=… N/M`; несоответствие — ВСЯ строка
-  КРАСНЫМ с ✗ (сверки в голове не нужно). Факт считается из
-  INTRINSIC_FACING ⊕ flip (`_facing_actual`), ожидание — `_facing_expected`
-  (P: RIGHT, E: LEFT; RUN_BACK — по движению).
-- **F9-КОПИПАСТ-РЕПОРТ** (пункт 4): каждое нажатие F9 сохраняет строки
-  оверлея в `data/facing_report.txt` (заголовок с датой; UTF-8) —
-  пользователь присылает текст, разбор за минуту без скриншотов.
-- **Верификация**: НОВЫЙ scripts/diag_stage209.py 51/51 (статы/качество/
-  проброс через get_item_definition вкл. outfit-инстанс; флип по фазам
-  RUN_BACK=True; expected/actual; инвариант ✓/✗; репорт-файл; 120 кадров).
-  Регресс: diag207 40/40 (ожидание RUN_BACK cloth14 → True), diag208
-  24/24 (обновлён: RUN_BACK skin → True), diag205 59/59, diag206 41/41
-  (стат-чек обновлён под 26/6/16), verify202 13/13, verify_battle_native
-  18/18, replay_flow 10/10, click_offset 0 dead, e2e/drag/ghost/battle_bg/
-  hidpi_smoke PASS; ruff 0; py_compile OK; bun lint чист.
-- RULES.md: П13 п.5 «БАЗА СКИНА БЕЗ ЗЕРКАЛА, RUN_BACK — ПО ДВИЖЕНИЮ
-  (Stage 209, финал)» + новый п.7 ИНВАРИАНТ ФЕЙСИНГА + п.8 верификация;
-  НОВЫЙ П17 «Костюмы: качество и добавление новых» (чек-лист добавления
-  костюма = только данные; статы ВСЕГДА от пользователя).
-- Витрина: pockie_rpg_v205.0.zip.
-
-## Предыдущая версия: v204.2
-
-**Stage 208 — «убери зеркаливание — ассеты уже правильные» + F9-фейсинг-
-оверлей: рантайм-зеркало скинов запрещено ПОЛНОСТЬЮ:**
-- **Симптом**: пользователь проверил ассеты cloth14 (все 5 экшенов смотрят
-  ВПРАВО — подтверждено визуальным просмотром кадров) но в игре Абараи
-  «опять не туда смотрит». Анализ: zip/код/ассеты идентичны репо,
-  needs_flip_for_player=False по всем папкам — единственное ОСТАВШЕЕСЯ
-  зеркало в рантайме — инверсия `seq.flip = not seq.flip` на фазе
-  RUN_BACK (бежит домой «разворотом»); плюс недоверие к цепочке
-  INTRINSIC_FACING после двух багов подряд.
-- **Решение (по прямому запросу пользователя)**: скины
-  (skin_actions задан) НЕ ЗЕРКАЛЯТСЯ В РАНТАЙМЕ ВООБЩЕ: `set_action` →
-  flip=False для всех экшенов; `base_flip` → False; RUN_BACK для скинов
-  НЕ инвертирует (бежит домой лицом к врагу — «Абараи всегда смотрит
-  направо»); `_spawn_player_animator` → False. Зеркало — ТОЛЬКО на
-  экстракции (RULES П13). Ичиго/враги — 1:1 (RUN_BACK-разворот остался).
-- **F9-фейсинг-оверлей** (просьба пользователя): строка на аниматор
-  `P:/E: папка | flip (зелёный False/красный True) | экшен кадр N/M` +
-  фаза активной seq; тумблер в любом состоянии; тест-панель переехала
-  F9 → F8 (подписи/комменты обновлены: render_test_panel, damage,
-  save_load, test_battle). Оверлей рисуется поверх всего рядом с F10-
-  панелью (левый верх), ClickRect'ов не добавляет.
-- **Верификация**: НОВЫЙ scripts/diag_stage208.py 24/24 (скин не флипается
-  НИГДЕ вкл. RUN_BACK; ichigo/враг 1:1; оверлей без аниматоров/в бою;
-  120 кадров с оверлеем). Полный комплект: diag207 40/40 (ожидание
-  RUN_BACK cloth14 обновлено под Stage 208), diag205 59/59, diag206
-  41/41, verify202 13/13, verify_battle_native 18/18, hidpi_smoke PASS,
-  ruff 0. Скриншоты /home/z/tmp_stage208/: Абараи лицом ВПРАВО на беге,
-  ударе и обратном беге; оверлей читается (cloth14/run flip=False).
-- Витрина: pockie_rpg_v204.2.zip.
-
-**Stage 207 — фикс фейсинга Абарая в атаке: «начинает бежать/бить и смотрит
-влево» — хардкод флипа атаки «игрок → True» разворачивал pre-flipped скин:
-- **Причина**: кадры cloth14 уже смотрят ВПРАВО (Stage 205 пре-флип,
-  INTRINSIC_FACING=RIGHT), idle при входе в бой брал флип из папки
-  (needs_flip_for_player → False ✓), но `combat_replay._start_attack_sequence`
-  жёстко задавал `initial_flip = True` (верно только для Ичиго — intrinsic
-  LEFT) и ЗАТИРАЛ правильный флип аниматора → на беге/атаке Абараи
-  разворачивался ВЛЕВО. Те же хардкоды в 2 местах `default_flip =
-  True if seq.is_player else False` (ranged DONE, RUN_BACK DONE).
-- **Фикс (единственный источник флипа — скин)**: НОВЫЙ метод
-  `IdleAnimator.base_flip(asset_manager)` — флип базовой позиции из
-  INTRINSIC_FACING папки скина (игрок → needs_flip_for_player, враг →
-  needs_flip_for_enemy); `combat_replay`: старт seq — флип после
-  `set_action("run"/"attack")` (аниматор сам вычисляет по папке), оба
-  DONE — `animator.base_flip()`. RUN_BACK по-прежнему инвертирует
-  (разворот «спиной домой» — визуальный разворот, корректен для обоих).
-- **Поведение 1:1**: ichigo (старт True, RUN_BACK False), самурай
-  (старт False, RUN_BACK True) — не изменились; cloth14 — все фазы лицом
-  ВПРАВО к врагу (RUN_BACK True = разворот домой).
-- **RULES П13 переработан** в полный конвейер анимаций с фейсинг-
-  протоколом: пользователь ВСЕГДА сообщает направление исходника →
-  зеркало ВСЕХ экшенов на этапе экстракции (PIL, lossless) → итог в
-  INTRINSIC_FACING каждой папки → флип только через base_flip
-  (хардкоды по роли ЗАПРЕЩЕНЫ). Гонч: alpha-mass эвристика обманывается
-  причёской/хвостом (Абараи «LEFT» при лице вправо).
-- **Верификация**: НОВЫЙ scripts/diag_stage207.py 40/40 — base_flip обоих
-  скинов+врага; флип по ВСЕМ фазам ближней атаки cloth14/ichigo/врага;
-  ranged DONE обоих скинов; смертельный удар HOLD→PARKED (победитель
-  лицом к врагу); 120 кадров регресс. Полный комплект: diag_stage205
-  59/59, diag_stage206 41/41, verify_stage202 13/13,
-  verify_battle_native 18/18, diag_replay_flow 10/10 (StubAnimator
-  дополнен полем flip/base_flip под Stage 207 API), click_offset 0 dead,
-  e2e/drag/ghost/battle_bg/hidpi_smoke ALL PASS; ruff 0.
-- **Визуально**: лист кадров через get_motion_sprite — cloth14 idle/run/
-  attack/hit с flip=False смотрят ВПРАВО (лицо справа, хвост слева);
-  flip=True (старый баг) — лицо слева. Скриншот /home/z/tmp_stage207/.
-- **Чистка доков**: удалены устаревшие battle_bug_report.md и
-  project_foundation_report.md (выводы в истории Stage'ей; отложенный
-  пункт аудита §1.2 п.5 остаётся в реестре идей); upload/ очищен полностью
-  (промт-доки реализованы, ассеты cloth14 интегрированы в assets/);
-  ссылка на battle_bug_report в комментарии combat_replay переформулирована.
-- Витрина: pockie_rpg_v204.1.zip.
-
-## Предыдущая версия: v204.0
-
-**Stage 206 — костюм cloth14 → «Ренджи АБАРАИ» (пользователь: НЕ Сакура):
-полная привязка облика к костюму — аватар/имя/поза/статы переключаются
-вместе с анимациями (и обратно):**
-- **Новые ассеты** (прозрачность уже в исходниках — фон не трогали):
-  `userface_0_14_role.gif` (82×81, HUD-аватар) → assets/icons/avatar/;
-  `people_013_pose.s110.png` (189×301) → assets/icons/character/
-  people_013_pose.png (спрайт в полный рост для инвентаря).
-- **Suit-запись i290014** (STARTER_SUITS): name «Ренджи Абараи», avatar
-  userface_0_14_role.gif, motion_folder cloth14/idle, НОВОЕ ПОЛЕ
-  `Suit.pose_filename` (дефолт people_002_pose.png — обратная совместимость).
-- **resolve_player_suit(player)** (roles_db, re-export через state): equipped_outfit
-  (вкл. outfit_inst_N) → OUTFITS_DB["suit_id"] → STARTER_SUITS; нет связи →
-  fallback player.suit_id. Заменила 8 копий `STARTER_SUITS.get(player.suit_id)`
-  (pygame_ui ×4, render_battle ×2, render_map, test_battle). Связки:
-  suit_cloth14→i290014, suit_ichigo→i290001; чужие костюмы (samurai_tank и
-  т.п.) без suit_id — классический Ичиго.
-- **Имя игрока от костюма**: плашка HUD боя (render_battle) и шапка
-  Character Sheet (render_skills_charsheet, только для игрока; враги —
-  role.name) показывают suit.name.
-- **Поза инвентаря от костюма**: `_char_pose_surface` берёт
-  suit.pose_filename; сырой кэш стал словарём `_char_pose_raws[filename]`,
-  scaled-кэш ключуется `(id(raw), w, h)` — смена костюма не подсовывает
-  чужой спрайт при тех же габаритах.
-- **Статы** (уже были от equipped_outfit, подтверждено): cloth14 переведён на
-  СИЛОВОЙ архетип strength_dps (Ренджи — силовой боец): base 15/8/12,
-  bmv_price 12/30/20, growth 1.4/0.4/0.9 — надел Абарая = другая сборка
-  (diag: min_atk 110→137, max_hp 460→540 при уровне 1; и обратно).
-- **Миграция сейва**: `suit14_grant_v206` (паттерн synth_test_grant_v160) —
-  старым сейвам разово выдаётся 2× suit_cloth14; новые получают из
-  starter_items() (флаг сразу True; повторных грантов нет — diag).
-- Верификация: НОВЫЙ scripts/diag_stage206.py 41/41 (ассеты, данные,
-  resolve: база/инстанс/fallback, миграция без дублей, статы туда-обратно,
-  рантайм: шпион get_avatar → userface_0_14_role.gif, 120 кадров, позы,
-  F9); diag_stage205 59/59 (совместимость); полный регресс: verify_stage202
-  13/13, verify_battle_native 18/18, diag_replay_flow 10/10,
-  diag_click_offset 0 dead, e2e/drag/ghost/battle_bg/hidpi_smoke ALL PASS;
-  ruff 0 (src+scripts); импорт-смоук OK. ВИЗУАЛЬНО (скриншоты): HUD «Ренджи
-  Абараи» + аватар Ренджи в бою; поза Ренджи в инвентаре; Ичиго —
-  возвращается 1:1 в обоих местах.
-- Витрина: pockie_rpg_v204.0.zip.
-
-## Предыдущая версия: v203.0
-
-**Stage 205 — костюм cloth14 (назван «Сакура» — ОШИБКА, исправлено в
-Stage 206: это РЕНДЖИ АБАРАИ): первый скин игрока СО СВОИМИ анимациями
-боя (надел костюм → персонаж в бою меняется целиком):**
-- **Экстракция** (пайплайн восстановлен: scripts/extract_swf.py утерян в
-  чистках, FFDec 22.0.2 пере-скачан в `~/tools/ffdec`): 5 SWF
-  (motion_0_14_{998,52,55,63,100}_role.s118.swf) → `-export sprite` → 32 кадра
-  в единых баундах экшена, прозрачный фон, качество lossless.
-  Hold-дубли таймлайна SWF (idle 8→4 уникальных, attack 11→7, hit 7→3,
-  death 2→1) СОХРАНЕНЫ — конвенция ichigo/black_samurai (аутентичный тайминг).
-- **ФЛИП ВЛЕВО→ВПРАВО (запрос пользователя: «это будет игрок»)**: все кадры
-  отзеркалены попиксельно (PIL FLIP_LEFT_RIGHT, flip→re-mirror==original
-  проверен) → INTRINSIC_FACING cloth14/*=RIGHT, needs_flip_for_player=False,
-  runtime-флип НЕ нужен (в отличие от ichigo LEFT+flip).
-- **Механизм скинов (data-driven)**: `PLAYER_MOTION_SKINS` в config (name→
-  folder для ichigo/cloth14); OUTFITS_DB["suit_cloth14"]["motion_skin"]=
-  "cloth14"; `IdleAnimator.skin_actions` подменяет ichigo-мапу при is_player
-  (None = классика); фабрика `_spawn_player_animator()` (4-я копия создания
-  аниматора игрока устранена: _enter_battle/башня/гонтлет/test_battle);
-  `_player_skin_actions()` резолвит equipped_outfit → outfit_inst_ → БД.
-  БУДУЩИЙ костюм = папка кадров + запись OUTFITS_DB с motion_skin + строка в
-  PLAYER_MOTION_SKINS — код не меняется.
-- **Предмет**: OUTFITS_DB/EQUIPMENT_DB suit_cloth14 «Костюм «Сакура»»
-  (agility_dps, bmv 25/12/18 — СТАТЫ-ПЛЕЙСХОЛДЕР до уточнения), иконка
-  suit_cloth14.png (= upload/icon_avatar_cloth14.s110.png), 2 шт в
-  starter_items (тест: носка + попытка синтеза). Работает и через инстанс
-  синтеза outfit_inst_N.
-- Аватарки HUD — пока от Ичиго (пользователь пришлёт позже, отдельный шаг).
-- Верификация: НОВЫЙ scripts/diag_stage205.py 59/59 (ассеты, конфиг, скин-
-  механизм база+инстанс, 5 действий, fallback, обратная совместимость ichigo,
-  120 кадров боя, F9, death-фриз); полный регресс: verify_stage202 13/13,
-  verify_battle_native 18/18, diag_replay_flow 10/10, diag_click_offset 0 dead,
-  e2e/drag/ghost/battle_bg/hidpi_smoke ALL PASS; ruff 0; импорт 50 модулей OK;
-  визуальный скриншот-контроль боя (idle+attack, взгляд ВПРАВО ✓).
-- Витрина: pockie_rpg_v203.0.zip.
-
-## Предыдущая версия: v202.2
-
-**Stage 204 — «волна чистки» по аудиту (Task ID audit-204): мёртвый код ~440
-строк удалён, топ-дубли консолидированы, −695 строк суммарно (32768→32073):**
-- **Мёртвый код (0 вызовов, каждый верифицирован grep по src+scripts)**:
-  - config.py ~70 имён: FULLSCREEN_ENABLED/WINDOW_MAXIMIZED/SCREEN_*_UI/
-    FULLSCREEN_TOGGLE_KEY, BGM/SFX_VOLUME, LEVEL_UP_MIN/MAX_ATK+STR/AGI/STA
-    (state считает из собственных таблиц), WORLD_BOSS_DAILY_ATTEMPTS/HP_BAR_W/H/
-    SPRITE_SCALE/RANK_F, TOWER_MAP_BACKGROUND/MODAL_W/H/FLOOR_ROW_H/LOCKED_COLOR,
-    SKILLS_BTN_* ×4 + SKILLS_MODAL_CLOSE_* ×4 + SKILLS_SLOT_ACTIVE_FG,
-    CRYSTAL_BLADE_* ×6 (осталась FREEZE_DURATION — живой дефолт fighter),
-    FIREBALL_OVERLAY_FPS/RENDER_W/H, DEBUFF_ICON_Y_OFFSET/CENTERED/LEFT_PADDING,
-    BREATHING_AMP/PERIOD, LUNGE_*/DEATH_FREEZE_DURATION (тайминги в
-    AttackSequence), COUNTDOWN_TOTAL, BASE_ATK_TIME, MAP_BACKGROUND,
-    ICHIGO_ACTION_NAME_MAP, SUIT_TO_MOTION, ENEMY_MUST_FACE_LEFT/
-    PLAYER_MUST_FACE_RIGHT (правило зашито в needs_flip_for_*), WEAPON_SPAN,
-    BOTTOM_BAR_BG, MAP_CARD_HOVER_SHADOW, BUTTON_W/H, BAR_PADDING, TEXT_NAME,
-    PEOPLEPOSE_DIR, CHAR_SHEET_BORDER/PADDING, MODAL_GRID_PADDING,
-    MINIMAP_MOBS_BG, WORLDMAP_FADE_SEC, INVENTORY_PAGE_COUNT + get_skill_config.
-  - formulas.py: rating_to_percent, RATING_PCT_DIVISOR, CRIT_BASE_CHANCE_PCT,
-    RATING_STAT_KEYS (+ чистка re-export блока config).
-  - state.py ×8: get_effective_max_mp, get_max_hp, get_enchant_level, add_item,
-    _loc_item, is_daily_quest_complete, first_available_story_quest,
-    claim_tower_first_clear.
-  - pygame_ui.py ×8: _get_modal_fade_alpha (осиротел после fade Stage 202),
-    _exit_las_noches, _select_tower_floor, _buy_tower_consumable,
-    _set_shop_eq_subtab + поле _shop_eq_subtab, _exit_game_from_bar
-    (кнопки «Выход» нет), _shop_equipment_prev/next_page.
-  - render_map.py: _f_map_* ×8 (сироты после _su_font) + _FS_MAP_LABEL.
-  - save_load: has_save/delete_save/is_dirty + TEMP_FILE_PATH (mkstemp инлайном).
-  - data: tower_db (TOWER_MATERIAL_IDS, TOWER_MODIFIERS, is_boss_floor),
-    item_db (GEAR_SLOTS/OUTFIT_SLOTS), npcs_db (NPC_QUEST_GIVERS).
-  - прочие: Fighter.heal, all_skill_ids, IdleAnimator.get_breathing_offset
-    (всегда 0), AssetManager.get_font + _font_cache, _CAST_EFFECT_PARAMS,
-    _place_quest_arrow (инлайн в _quest_go_to), SYNTH_SLOT_PAD.
-- **Дубли → единые точки**:
-  - effects.py: иерархия LoopingOverlay (цикл: activate/deactivate/update/
-    render-центр) ← EffectOverlay ← IceBlockEffect; OneShotEffect (update
-    «проиграл и погас» + _sprite) ← CastEffect/ProjectileEffect.
-    CastEffect.update == ProjectileEffect.update были ratio 1.00.
-  - **Сброс боевого состояния 6 копий → _reset_battle_common_state
-    (countdown_active=)**: _enter_battle, _enter_tower_battle, _exit_battle
-    (countdown_active=False), гонтлет, test_battle enter/exit; хелпер расширен
-    до супермножества (+endgame-поля text/phase/xp/gold/level, _skills_modal_open).
-  - **Фабрика врага _spawn_enemy_fighter(enemy_role, enemy)** — 3 копии
-    (_enter_battle/гонтлет/test_battle) → 1; ПОПУТНЫЙ ФИКС F9: test-копия
-    юзала несуществующую папку "samurai_idle" (надо MOB_TO_MOTION →
-    "samurai/idle") и теряла role_id (спец-обработка синего/чёрного самурая).
-  - DEFAULT_GEAR_ICONS + DEFAULT_TYPE_TO_SLOT в item_db — вместо 2 dict
-    (render_battle + render_quick_battle).
-  - dirname×4-хак путей иконок render_inventory ×3 → ASSETS_DIR.
-- **Готч каскада**: CAST_FIREBALL_FPS/W/H/Y_OFFSET оказались ЖИВЫМИ (combat_replay
-  импортирует напрямую, мимо мёртвого словаря) — восстановлены;TEMP_FILE_PATH
-  и _FS_MAP_LABEL — каскадные сироты после удаления delete_save/_f_map_label.
-- Верификация: py_compile ВСЕХ 40 файлов, ruff 0, полный импорт 40 модулей;
-  verify_stage202 13/13, verify_battle_native 18/18, diag_replay_flow 10/10,
-  diag_click_offset 0 dead, diag_e2e_clicks/diag_window_drag/diag_drag_ghost/
-  diag_battle_bg/hidpi_smoke ALL PASS; headless-смоук F9 (папка/role_id/интро-лог/
-  выход) и боя (120 кадров update+render, fireball one-shot, exit).
-- Витрина: pockie_rpg_v202.2.zip.
-
-## Предыдущая версия: v202.1
-
-**Stage 203 — рефакторинг UI по чек-листу REFACTORING_PROMPT_diff.md (дубли,
-мёртвый код, UI_THEME) — с честными поправками к промту:**
-- **Честная оценка промта ДО реализации**: задачи #1.1 (тултип статуса) и
-  #3.1 (модульные шрифты endgame) УЖЕ выполнены в Stage 201/202 — проверено
-  по коду (render_tooltip_panel используется; _FONT_* только в комментариях);
-  #1.3 НЕ принят как есть — _wrap_text живой (единственный пользователь —
-  _render_skill_tooltip, встроенная панель фикс-области, НЕ «панель у
-  курсора»); #2.1 в лоб НЕ принят — реестр _window_close_buttons
-  персистентный и гейтится open_attr, у MAP-модалок его нет (чар-лист слот 2
-  рендерится с monkey-patch флага) — stale-записи вечно глотали бы клики;
-  #5.1 в лоб НЕ принят — в ассетах неквадратные иконки (51×78, 65×57),
-  _su_image(48,48) растягивал бы их; в промте также ПРОПУЩЕНА связка:
-  hasattr-гарды endgame ссылаются на _load_item/_gem_icon_surface, которые
-  удаляет #5.1 — после обоих правок иконки лута стали бы None.
-- **ui/tooltip.py** (хелпер Stage 202 расширен для 3-го потребителя):
-  TooltipLine.rule (линия-разделитель вместо текста), PanelStyle.min_w,
-  render_tooltip_panel(prefer_below=) (anchor-режим: ПОД якорем с флипом
-  вверх — позиция баф-тултипа MAP).
-- **render_map.py**: _render_buff_tooltip переписана на хелпер (rule-линии,
-  min_w 170, gold-рамка, anchor prefer_below — вид 1:1); _wrap_tooltip_text
-  удалена; X-кнопка модалок рисуется через ОБЩИЙ _draw_close_x_square
-  (scaling.py), хиттест остался покадровым ClickRect; _render_map_bar
-  УДАЛЕНА (−45 строк) — 3 call sites → _render_bar(..., simple=True).
-- **render_battle.py**: _render_bar получил simple-режим (без
-  тени/ghost/блика/shine; рамка MAP_PANEL_BORDER su(1), радиус 3, лейбл
-  10px bold — вид MAP-полосок сохранён 1:1); в endgame удалены мёртвые
-  hasattr-гарды и 55-строчный fallback-рендер лута (QuickBattleRendererMixin
-  всегда в PygameUI); иконки лута → _su_image(path, 42, 42, fit=True)
-  (42 = 48−6, прежний внутренний отступ).
-- **scaling.py**: _su_image(fit=True) — вписывание с СОХРАНЕНИЕМ ПРОПОРЦИЙ
-  (кэш ключ +"#fit"); _draw_close_x_square — единый визуал красного Х
-  (цвета в UI_THEME), используют _render_window_close_button и
-  _render_close_x_button (non-hover оттенок MAP 140,30,30 → 120,28,28 —
-  унификация, на глаз незаметно).
-- **render_quick_battle.py**: _load_item_icon_surface/_load_gem_icon_surface
-  удалены (−52 строки) — call sites → _su_image(fit=True); путь иконок
-  предметов через ASSETS_DIR (был dirname×4-хак).
-- **config.py**: UI_THEME — семантические цвета UI (zinc/gold/red/emerald/
-  blue/white/black + close_x_bg/tooltip_sep/green_soft); миграция ~940
-  сырых троек ПОСТЕПЕННАЯ (по мере касания кода) — трогаемый код Stage 203
-  уже на UI_THEME.
-- Итог: ~140 строк дублей/мёртвого кода удалено; verify_stage202 13/13
-  (хелпер с расширениями совместим), verify_battle_native 18/18,
-  diag_replay_flow 10/10, diag_click_offset (0 dead), diag_e2e_clicks,
-  diag_window_drag, diag_drag_ghost, diag_battle_bg, hidpi_smoke — ALL
-  PASS; py_compile, ruff 0; headless-смоук новых веток (rule/min_w/
-  prefer_below, _render_bar simple+pulse) — OK.
-- Витрина: pockie_rpg_v202.1.zip.
-
-## Предыдущая версия: v202.0
-
-**Stage 202 — фиксы боя (числа урона, подложка уровня) + единый хелпер
-«панель у курсора» + fade-in окна боя + разбивка _render_hud:**
-- **Фикс чисел урона (баг Stage 97→201)**: в `DamageNumberSystem.render()`
-  пульс-фактор flash-фазы писался в ПАРАМЕТР `scale` (`scale = n.scale`) —
-  перезапись искажала позиции (n.x × пульс вместо n.x × render_scale) и
-  размер шрифта всех последующих чисел в кадре → «текст урона плавает и
-  скачет при появлении новых чисел». Теперь пульс — локальная `pulse`,
-  позиция всегда design × render_scale.
-- **Фикс подложки уровня врага**: геометрия плашки считается от ШИРИН С
-  АУТЛАЙНОМ (`e_lvl_x` от outlined-уровня, имя прижато к правому краю
-  полоски) — раньше ширина уровня бралась без аутлайна + магический «+1»
-  в blit (полукомпенсация), чёрный аутлайн мог вылезать за левый край
-  подложки. Verify: имя+уровень полностью внутри плашки, левый зазор 4px.
-- **ui/tooltip.py — единый хелпер «панель у курсора»** (реестр Stage 201):
-  `TooltipLine` (text/color/size/bold/space_before) + `PanelStyle`
-  (bg/border/radius/pad/accent) + `render_tooltip_panel(owner, lines,
-  cursor=|anchor=, wrap_width=, offset=, margin=)`. Один код: построение
-  панели, перенос по design-ширине, флип у краёв, кламп.
-  `_render_status_tooltip` (cursor-режим, перенос 260) и
-  `_render_loot_tooltip` (anchor-режим: над слотом, флип под низ,
-  рамка/акцент редкости) переведены на него — 2 дублированные
-  _su-реализации удалены.
-- **Fade-in окна боя 0.15с (реестр Stage 201)**: `_battle_window_fade`
-  0→1 за MODAL_FADE_SEC (тик в run-цикле при BATTLE, сброс в
-  _enter_battle); в _present_fullscreen альфу получают окно (нативный
-  surf / legacy smoothscale), legacy-слой чар-листов, затемнение и рамка
-  (рамка — новый SRCALPHA-кэш _static_surface). Фон (снапшот карты) НЕ
-  фейдится. TEST_BATTLE — без fade (dev F9); окно без монитора — без
-  fade (early return).
-- **Разбивка _render_hud (~350 строк → 5 методов)** (реестр Stage 201):
-  `_render_hud` (оркестрация + guards) → `_render_hud_player(player_role)` /
-  `_render_hud_enemy(enemy, enemy_role)` (возвращают (hp_x, mp_y) — якоря
-  полосок) → `_render_hud_status_icons(p_bars, e_bars)` →
-  `_render_status_tooltip` + `_render_gauntlet_queue(enemy_mp_y)`.
-  VS-эмблема — в оркестраторе.
-- **verify_stage202.py (13 чеков)**: BlitRecorder — сабкласс
-  pygame.Surface с записью blit'ов (прокси НЕ проходит isinstance в
-  pygame.draw.*); позиции чисел урона == solo-рендер при любом составе
-  кадра; геометрия подложки по recorded blit'ам; cursor/anchor-режимы
-  хелпера (флипы/клампы); fade (сброс/тик/восстановление альфы кэшей).
-  Регресс: verify_battle_native 18/18, diag_replay_flow 10/10,
-  diag_click_offset (0 dead), diag_e2e_clicks, diag_window_drag,
-  diag_drag_ghost, diag_battle_bg, hidpi_smoke — ALL PASS; py_compile,
-  ruff — чисто.
-- Витрина: pockie_rpg_v202.0.zip.
-
-## Предыдущая версия: v201.0
-
-**Stage 201 — нативный Hi-DPI бой (последний legacy-экран мигрирован):**
-- **Масштаб окна боя** = UI_SCALE × BATTLE_WINDOW_SCALE (2К: 2.0×0.6 = **1.2**):
-  контент боя рисуется в offscreen-поверхность РАЗМЕРА ОКНА (1536×864) и
-  блитится на монитор 1:1 (БЕЗ smoothscale) — текст/полоски/иконки чёткие,
-  layout окна 60% не изменился. `_begin/_end_native_battle_frame()` —
-  СВОЯ пара (pygame_ui), не путать с MAP-парой Stage 153.
-- **ClickRect'ы боя остались ДИЗАЙН-координатами (native=False)** — критичное
-  отличие от MAP: мышь боя ремапится `_map_battle_mouse` в дизайн-пространство
-  окна ДО хиттеста, а `_click_rect_hit` для native=True умножает позицию на
-  `_ui_scale` (2.0) — маркировка сломала бы все клики боя (баннеры, скорость,
-  endgame_ok). `_end_native_base_screen` (маркировку) к бою НЕ применять.
-- **Чар-листы в бою** (legacy-модалки) рисуются в `_legacy_layer` и
-  накладываются в прямоугольник ОКНА боя (scale legacy_layer → win_w×win_h) —
-  layout как в v200 (модалка не вылезает за окно).
-- **render_battle.py полностью на _su/_su_font** (фон `_su_scaled`, аватары
-  нативных размеров, спрайты через `get_motion_sprite(×_su размеры)` — кэш
-  asset_manager по размеру; тень/кольцо/блик/shine — `_static_surface` с
-  размером в ключе). Модульные `_FONT_*` удалены (7 шт.); `pygame.font.init()`
-  в шапке render_battle ОСТАВЛЕН — load-bearing для модульных шрифтов
-  render_worldmap (порядок импортов).
-- **effects/particles**: render(..., scale=1.0) — позиции/размеры эффектов и
-  частиц, размер шрифта цифр урона ×scale при отрисовке (состояние в дизайн-
-  единицах, как и анимация AttackSequence — combat_replay НЕ тронут: в нём
-  нет ни одного draw-вызова).
-- **Фон боя (аудит §1.2)**: smoothscale снапшота 1280×720 → монитор вынесен
-  в кэш `_battle_bg_monitor` (по метке BATTLE_BG_REFRESH_SEC) — было каждый
-  кадр (~6мс), стало раз в 0.25с. Замер: native 9.06 мс/кадр vs legacy 8.97
-  (+0.09 — паритет, при 1.44× пикселей и чётком тексте).
-- **verify_battle_native.py** (18 чеков): scale=1.2, окно 1536×864, мышь в
-  дизайн-пространстве, 7 ClickRect'ов design+живые, ховеры, композит 1:1,
-  endgame text+rewards в нативе, legacy-путь при отсутствии "battle" в
-  реестре. Регресс: diag_replay_flow 10/10, diag_click_offset (0 dead),
-  diag_e2e_clicks, diag_window_drag, diag_drag_ghost, diag_battle_bg,
-  hidpi_smoke (forge/inventory/map) — ALL PASS; py_compile, ruff 0.
-  diag_stage161.py удалён (API Stage 161 удалён в v162).
-- Витрина: pockie_rpg_v201.0.zip.
-
-## Предыдущая версия: v200.0
-
-**Stage 200 — HUD_THEME; вертикальное центрирование текста в подложке;
-более видимый текст; fade-in подложки:**
-- **HUD_THEME** (config, запрос: «собрать HUD-цвета в единый словарь»):
-  name_plate_bg/alpha/border/border_alpha, name_plate_fade_sec,
-  name_text_color (белый 255 — ярче старого zinc-100 244),
-  level_text_color (yellow-300 253,224,71 — ярче yellow-400), bar_gloss.
-  `_render_hud` читает тему; старые TEXT_NAME/TEXT_YELLOW остаются в
-  config для прочих экранов.
-- **Вертикальное центрирование** (запрос): имя и уровень рисуются по
-  ОБЩЕЙ средней линии плашки (plate_cy), а не «привязкой к верху» —
-  уровень больше не висит ниже базовой линии имени.
-- **Видимость текста** (запрос: «чтобы текст был немного лучше виден»):
-  имя чисто-белое, уровень yellow-300 (контраст выше на тёмной
-  подложке); добавлена лёгкая рамка zinc-500 (альфа 70) по краю
-  подложки — плашка не «пятно», а оформленный элемент.
-- **Fade-in подложки** (запрос: «плавно появляется вместе с боем»):
-  `_hud_plate_fade` 0→1 за name_plate_fade_sec=0.4с (тик в run-цикле
-  при BATTLE); alpha плашки/рамки умножается на фактор; сброс в 0 при
-  каждом входе в бой (3 точки: _enter_battle/_enter_test_battle/
-  _enter_gauntlet_battle). Чтение в рендере — getattr-дефолт 1.0
-  (headless-харнессы и старые тесты не обязаны знать про fade).
-- Проверено: verify_200.py — центры имя/уровень на линии плашки ±3px,
-  белое имя (38 px 255,255,255), yellow-300 уровень, рамка zinc-500
-  (полупрозрачная 44,44,47 на фоне), fade 0→0.5→1.0 (30,30,30 →
-  24,24,25 → 19,19,20); весь регресс 193-199 + verify_park + diag
-  10/10; py_compile, ruff — чисто.
-
-**Stage 199 — тёмная подложка под именем+уровнем бойцов над полосками
-(читаемость на любых локациях; запрос пользователя):**
-- ПОДЛОЖКА: слабозаметная тёмная плашка (10,10,12, альфа 120, radius 6)
-  под именем+уровнем Ичиго и врага над полосками HP/MP; ширина = имя
-  (аутлайн +2px) + 10 + уровень (аутлайн +2px) + паддинги. Кэш
-  _static_surface по ширине (у врага отдельный ключ — зеркальный layout).
-- ГОТЧИ (поймал verify_199): подложку мерять по АУТЛАЙН-размерам текста
-  (имя уже +2px после _outlined_text) — по «сырым» размерам уровень
-  вылезал за правый край подложки; blit уровня НЕ ВЫПАДАТЬ при правках
-  блока (потеря blit'а поймана пиксельным тестом «жёлтых 0»).
-- Проверено: verify_199.py — подложка есть в зонах имени/уровня у обоих
-  (46-52% тёмных пикселей), выше подложки фон чистый, подложка выше
-  полосок, уровень (19 жёлтых пикселей) поверх подложки; весь регресс
-  193-198 + verify_park + diag 10/10; py_compile, ruff — чисто.
-
-**Stage 198 — shine-sweep по полоскам; тень под городскими плашками;
-«подъём» тени карточек при hover; аутлайн на «Ур. N»; дубль тени удалён:**
-- **Shine-sweep** (идея реестра): раз в `BAR_SHINE_PERIOD=3с` мягкая белая
-  полоса (бэнд 46px, треугольная альфа, пик 55) пробегает по ЗАЛИВКЕ
-  полоски; направление ЗЕРКАЛЬНО списанию: Ичиго слева-направо, враг
-  справа-налево (mirror-anchor = направление sweep; клип по телу
-  заливки, скругления ±2px). `_draw_shine_band` + кэш; таймер
-  `_bar_shine_timer` тикает в run-цикле. ГОТЧА: направление привязывать
-  к mirror-якорю заливки (не к eff_gm — градиент смотрит в другую
-  сторону!); верифицировать только дельта-профилем (минус baseline при
-  t=0.5) — прямой пик профиля доминируется жёлтым кончиком градиента.
-- **Тень под городскими плашками** (Арена/Магазин/Башня): единый
-  `_drop_shadow` offset=2su, alpha=110, radius=8 (2 строки в цикле
-  плашек, ключ кэша 'city_card_shadow').
-- **«Подъём» тени карточек мобов при hover**: offset = 3+2t, alpha =
-  120+30t (t — анимированный фактор hover); ГОТЧА: анимированные
-  offset/alpha ОБЯЗАНЫ входить в cache_key (иначе тень закэшируется в
-  первом состоянии).
-- **Аутлайн «Ур. N»**: `_outlined_text` применён и к тексту уровня
-  обоих бойцов (текст врага сдвинут +1px под расширенную панель).
-- **Дубль тени**: `_make_icon_shadow` удалён полностью (обёртка над
-  `_surface_silhouette`; grep — 0 упоминаний).
-- Проверено: verify_198.py (sweep дельта-профилями: Ичиго 256→488,
-  враг 1024→792; удаление дубля; аутлайн уровня), регресс 193-197 +
-  verify_park + diag 10/10; py_compile, ruff — чисто.
-
-**Stage 197 — тени под карточками мобов и именами бойцов; единый хелпер
-_drop_shadow; стеклянный блик полосок:**
-- **_drop_shadow (ScalableRendererMixin, Stage 197)** — единый хелпер
-  теней: скруглённая плашка (offset/alpha/radius) + опциональный ореол
-  (halo_alpha/halo_spread) ИЛИ силуэтный режим (source=Surface — тень
-  повторяет форму через _surface_silhouette, альфа→чёрный). Тень
-  размером ЭЛЕМЕНТА, смещённая на (+offset, +offset) — выступает за
-  габарит снизу/справа (CSS box-shadow без blur). Кэш _static_surface.
-  Мигрированы: полоски HUD (Stage 196), иконки статусов (силуэтные).
-  ГОТЧА (поймал verify): «тень размером элемента, смещённая на +2» —
-  иначе тень прячется ПОД телом карточки/полоски и видна только с
-  одного края (первая версия хелпера делала тень в габарите элемента).
-- **Тень под карточками мобов** (запрос): `_render_map_enemy_card` —
-  `_drop_shadow` offset=3 (su-масштаб), alpha=120, radius=8, до тела
-  карточки; hover-глоу рисуется поверх тени (не конфликтуют).
-- **Аутлайн имён** (запрос: «текст с 1px чёрным аутлайном вместо неё»):
-  `_outlined_text(surf)` — чёрная копия текста на 4 соседних позиции +
-  оригинал поверх, поле +1px; применяется к именам Ичиго и врага над
-  полосками (читаемость на светлых фонах локаций).
-- **Блик полосок** (реестр): 1px светлая линия (белая альфа 60) вдоль
-  верха полоски с отступом 3px под скругление — «стекло» в паре с
-  тенью; на всех 4 полосках.
-- Проверено: verify_197.py (силуэтный/плашечный режимы _drop_shadow,
-  аутлайн — 110 чёрных пикселей вокруг имени, блик светлее тела),
-  verify_197_card.py — тень под карточкой моба через НАСТОЯЩИЙ
-  _render_map_enemy_card; verify_193/194/195/196 обновлены и PASS;
-  verify_park, diag 10/10; py_compile, ruff — чисто.
-
-**Stage 196 — drop-shadow под HP/MP-полосками (глубина; идея из реестра):**
-- В `_render_bar` перед телом полоски: тёмная скруглённая плашка (альфа
-  110, radius 4) со смещением +2,+2 + мягкий ореол (альфа 45, radius 6,
-  +3,+3). Кэш `_static_surface` по размеру полоски (2 записи: 420×18 и
-  380×9). Тень рисуется ДО bg — тело полоски перекрывает основную тень,
-  видны только 2px полоса снизу/справа + ореол.
-- Проверено: verify_196.py — тень на всех 4 полосках (низ/бок), ореол
-  светлее ядра, внутри полоски тени нет, тень конечна (+6px чисто),
-  MP-зона в тени HP; diag 10/10, verify_park/194/195 — PASS;
-  py_compile, ruff — чисто.
-
-**Stage 195 — HUD боя: зеркальное списание HP/MP; MP уже HP; счётчики
-ходов, тени и тултипы на иконках статусов:**
-- **ЗЕРКАЛЬНОЕ списание** (запрос: «У Ичиго слева направо отнимаются,
-  у врагов справа налево к центру»): семантика `mirrored` в `_render_bar`
-  СУЖЕНА до «якоря заливки/ghost» (True = остаток прижат к правому краю,
-  пустота растёт слева). Ичиго: mirrored=True (остаток у ПРАВОГО,
-  центро-обращённого края); враг: mirrored=False (остаток у ЛЕВОГО края,
-  пустота растёт к центру). Направление градиента отвязано параметром
-  `gradient_mirrored` (None = как mirrored): тёплый кончик ВСЕГДА у
-  центра экрана, красное/синее основание — у наружного края (у границы
-  урона). Окно кропа градиента = сторона color_from. ГОТЧА: не путать
-  `mirrored` (якорь) и `gradient_mirrored` (направление) — в v193 они
-  были связаны и это мешало зеркальному списанию.
-- **MP уже HP**: `MP_BAR_W=380` (было =HP_BAR_W 420); MP-полоска прижата
-  к кончику (у Ичиго правые края HP/MP совпадают, у врага левые).
-- **MP-градиент** (запрос): синий→голубой (MP_GRADIENT_COLOR_FROM
-  (37,99,235) → _TO (56,189,248)); `_draw_hp_gradient` обобщён в
-  `_draw_bar_gradient(surf, mirrored, from, to)`.
-- **Иконки статусов**:
-  * **тень 2px** — чёрный силуэт иконки (альфа 150, BLEND_RGBA_MULT),
-    blit со смещением +2,+2 ПОД иконкой (кэш _static_surface по имени
-    статуса — силуэты разных иконок разные!);
-  * **мини-счётчик ходов** — тёмная плашка (18×14) с жёлтой цифрой
-    оставшихся ходов в правом нижнем углу (duration > 1; единичный
-    эффект не подписывается);
-  * **тултип при наведении** — STATUS_TOOLTIPS (config: имя + описание
-    для freeze/poison/burn/thunder_cloud/shield/extra_turn/stun/
-    paralyze); панель у курсора (имя золотом, описание с переносом,
-    «Осталось ходов: N»), флип у краёв экрана; hover — по _mouse_pos
-    поверх icon_rects (ClickRect не регистрируются — тултип пассивный).
-- Проверено: verify_195.py — пиксельные чеки: зеркальное списание (Ичиго
-  пусто слева/заливка справа; враг наоборот), жёлтые кончики у центра +
-  красные основания у краёв при полном HP, MP уже HP и кончики совпадают,
-  MP зеркальное списание, тень (тёмные пиксели +2px за габаритом иконки),
-  бейдж (24,24,28) в углу, панель тултипа у курсора; verify_193/194
-  обновлены под новые схемы; verify_park, diag 10/10; py_compile, ruff.
-
-**Stage 194 — MP-градиент (синий→голубой); иконки статусов зеркально от
-кончиков полосок (уточнение фидбека):**
-- **MP-градиент** (запрос: «тем же механизмом, одна константа»):
-  `_draw_hp_gradient` обобщён в `_draw_bar_gradient(surf, mirrored,
-  color_from, color_to)`; `_render_bar` принял параметры
-  `gradient_from/gradient_to` (None → HP-пара по умолчанию), ключ кэша
-  строится из пары цветов и направления. `MP_GRADIENT_COLOR_FROM
-  (37,99,235 синий-600) → _TO (56,189,248 sky-400)`; у врага зеркально
-  (голубой кончик у центра). Пиксельно сверено: основание/кончик обеих
-  сторон равны константам ±2.
-- **Иконки статусов — зеркально от КОНЧИКОВ** (уточнение: «первый дебаф
-  строго под кончиком полоски и рос влево у игрока, у врага рос вправо»):
-  Ичиго: первая иконка ПРИМЫКАЕТ К ПРАВОМУ краю полоски ИЗНУТРИ
-  (ix = bar_right − size − i·(size+gap)) — рост влево к аватару; враг:
-  первая от ЛЕВОГО края (ix = bar_left + i·(size+gap)) — рост вправо.
-  Проверено 3 иконками на сторону: примыкание к кончику, зазор
-  DEBUFF_ICON_GAP, направление роста.
-- Проверено: verify_194.py (MP-градиент ×2 стороны, 6 иконок: позиции/
-  зазоры/направления), verify_193.py обновлён под новую схему иконок
-  (градиент HP/ghost/сегменты не тронуты), verify_park OK, diag 10/10,
-  py_compile, ruff — чисто.
-
-**Stage 193 — победитель остаётся у поверженного врага (PARKED); иконки
-статусов от центра; градиентная HP-полоска + белый догоняющий сегмент:**
-- **PARKED-фаза** (запрос: «после победы Ичиго телепортируется на своё
-  место, а должен оставаться возле поверженного врага»): ROOT CAUSE —
-  HOLD-ветка по таймеру делала `phase="DONE"` + `current_x=base_x`, а
-  `_start_endgame` ещё и принудительно DONE-финализировала seq → рендер
-  (`is_done()` → base_x) телепортировал спрайт. Решение: новая фаза
-  **PARKED** — `AttackSequence.holds_position()` (рендер читает current_x
-  на PARKED тоже), `is_done()` возвращает True для DONE+PARKED (ранний
-  return в `_update_battle` не блокирует endgame-апдейт). HOLD → пауза
-  0.9с → PARKED → `_start_endgame()` (больше НЕ трогает current_x; для
-  смертей вне seq ставит PARKED на месте). Работает в ОБЕ стороны
-  (Ичиго-победитель у врага на strike_x=850, враг-победитель у Ичиго на
-  430). Сброс позиций — в `_exit_battle`/новом раунде гантлета (анекторам
-  не трогали: seq создаётся заново). diag-чеки обновлены: PARKED —
-  корректная финальная фаза.
-- **Иконки статусов от центра** (запрос): Ичиго — от правого края
-  полоски ВПРАВО (первая вплотную к краю, i-я дальше к VS); враг — от
-  левого края полоски ВЛЕВО (зеркально). Правый край полоски врага и
-  левый Ичиго — чистые.
-- **Градиент HP** (запрос: «красный → жёлтый, плавный»): `_draw_hp_
-  gradient` рисует 420 вертикальных линий (HP_GRADIENT_COLOR_FROM
-  (220,38,38) → _TO (250,204,21)); кэш `_static_surface` по ключу
-  (mirrored — у врага кончик жёлтый У ЦЕНТРА, основание красное у края);
-  пульс при низком HP — BLEND_RGB_MULT на копии градиента. MP — без
-  градиента (синий). `_render_bar` расширен параметрами `gradient` и
-  `ghost_value` (опциональные, старые вызовы не ломаются).
-- **Белый догоняющий сегмент** (идея из реестра): ghost-значение лерпится
-  к заливке медленнее (BAR_GHOST_LERP_SPEED=2.5 < HP_LERP_SPEED=9) в
-  `_update_hp_mp_display` (dict `_bar_ghosts` + свойства
-  `_player_hp_ghost` и т.п. для рендера); при лечении ghost мгновенно
-  подтягивается (сегмент показывает только ПОТЕРЮ). Рисуется между
-  заливкой и ghost-позицией цветом BAR_GHOST_COLOR (zinc-100). MP тоже
-  (белый на тёмно-синем).
-- Проверено: verify_193.py — пиксельные чеки: градиент (основание
-  красное / кончик жёлтый при полном HP, обе стороны), белый сегмент
-  между заливкой и ghost (и его отсутствие после догоняния), иконки
-  примыкают к внутренним краям полосок и растут к VS; verify_park.py —
-  переходы RUN_FORWARD→PAUSE→ATTACK→HOLD→PARKED, позиция strike_x на
-  всём endgame; diag_replay_flow 10/10; py_compile, ruff — чисто.
-
-**Stage 192 — HUD боя по фидбеку: полоски HP/MP ближе к VS, без чисел,
-иконки статусов справа:**
-- **Сдвиг к центру**: новая константа `HUD_BAR_CENTER_SHIFT=70` (config) —
-  X имён и полосок Ичиго += 70, X врага -= 70. Внутренние края полосок
-  теперь в 30px от кончиков ромба VS (было 100px зазора). Гейт: имя
-  врага ужмётся шрифтом/«…» раньше (avail_name_w меньше на 70) — длинные
-  имена («Черный самурай») проверены smoke-рендером, влезают.
-- **Числа с полосок убраны** (запрос): label-параметры «HP x/y»/«MP x/y»
-  удалены из всех 4 вызовов `_render_bar` (state читается по длине
-  заливки + пульсация при <25%). Параметр `label` в `_render_bar` ОСТАВЛЕН
-  (опциональный, другие экраны не используют, но API не ломаем).
-- **Иконки статусов справа**: старт-X = `bar_right − total_w` для ОБОИХ
-  (Ичиго раньше был по левому краю). Позиция и вертикаль (под MP-полоской,
-  +4px) не менялись. Gauntlet-очередь лиц — без изменений (она и так
-  right-aligned).
-- Проверено: hud_smoke (геометрия: зазоры 30/30px симметрично; числа не
-  рисуются — пиксельная проверка правого края полоски) + hud_pixel_check
-  (иконки-маркеры легли впритык к правому краю обеих полосок, слева
-  чисто); diag_replay_flow 10/10; py_compile, ruff — чисто.
-
-**Stage 191 — контроль стоит темпа: пропуск хода списывает AP (запрос:
-«сейчас смысл от глыбы нету, она просто рассеивается и враг ходит») +
-аккуратные щит-тексты:**
-- **Механика глыбы по модели пользователя (все 3 сценария сверены
-  симуляциями на реальном движке):**
-  A) 1.0 vs 1.0: наложение → пропуск (frozen-сигнал) → ход Ичиго → УДАР
-     разбивает глыбу (×2, «Глыба разрушена!», shatter) → враг бьёт;
-  B) 1.0 vs 1.0, вместо удара — баф/сетка: наложение → пропуск → ход
-     Ичиго (без урона) → глыба спадает ПО ТАЙМЕРУ в конце его хода →
-     враг бьёт;
-  C) Ичиго 1.0 vs враг 2.0: 2 хода врага → наложение → 2 пропуска
-     ПОДРЯД → спад → ход Ичиго (при скорости ×2 очерёдность иная — банк
-     AP быстрого пустеет за его же двойные ходы).
-- **Правка:** fight.py CANT_MOVE-ветка: `attacker.action_points -= 1.0`
-  (наравне с обычным ходом); длительности контроля — по-прежнему через
-  `_global_freeze_decrement` (just_applied защищает ход наложения).
-  Отмена одного правила Stage 125 (строка Б «AP НЕ списывается»).
-- **Щит-тексты (анализ «криво выглядит» → 4 дефекта → правки
-  combat/damage.py):** полное поглощение — «{атак} бьёт {защ} — щит
-  поглотил весь удар (N урона)» / для скилла «{атак} использует {скилл}!
-  {защ} — щит поглотил весь удар (N урона)»; частичное — скобка
-  «(щит поглотил N)» в конце обычной формулы. Было: «удар Самурай»
-  (падеж), «на 25 урона Щит поглотил 74!» (слипшиеся предложения),
-  «Щит Ичиго поглотил…» (путаница кто кого), разные начала фраз у
-  полного/частичного. Имена ТОЛЬКО в именительном (без склонения —
-  программно ненадёжно).
-- Проверено: verify_freeze_v1.py — сценарии A/B/C PASS (структурные
-  ассерты: 1 пропуск в цикле A/B, shatter в A, спад после хода Ичиго в
-  B, 2 подряд в C); diag_replay_flow 10/10; движок-инвариант 300 боёв
-  (winner/alive/HP=0); щитовые инварианты 19/19; py_compile, ruff.
-- Баланс: контроль стал заметно сильнее (жертва теряет темп + шаттер
-  достижим); MAX_BOUT-ничья у ярких speed-дисбалансов не изменилась.
-
----
-
-## Предыдущая версия: v190.0
-
-**Stage 190 — «щит-фикс»: Купол снова виден на экране, лог и всплывашка
-объясняют удары «в щит», инвариант щита зеркало==движок:**
-- **ROOT CAUSE бага «самурай бьёт на 0 урона»** (репродукция: 10.7-12.7%
-  ударов самурая по Ичиго L1-L2 = damage=0, 100% из них shield_absorbed>0):
-  это Купол Ичиго (skill 14002, щит 300) ЦЕЛИКОМ поглощает удар 90-135 —
-  движок честен. НО на экране купол не появлялся: Stage 188-гейт статусов
-  `_active_attack_seq is None` не срабатывал НИКОГДА — ссылка на seq не
-  чистится после завершения (протухший объект до конца боя), а self-buff'ы
-  (Купол) seq не создают вовсе → статус не доходил до зеркала. До Stage 188
-  блок применялся безусловно (щит удваивался — та старая беда), после —
-  пропал совсем.
-- **Фикс: ownership-гейт по индексу события (Stage 190).**
-  `_peek_attack_info` возвращает `event_idx` найденного ATTACK-события;
-  `_start_attack_sequence` запоминает его в `_seq_applied_event_idx` ТОЛЬКО
-  когда seq реально создаётся (self-buff → ранний return, владение остаётся
-  у фолбэка). В `_process_combat_event` ATTACK:
-  `handled_by_seq = (_seq_applied_event_idx == _replay_event_idx)` — урон и
-  статусы применяет РОВНО ОДНА точка (seq в момент удара ИЛИ событие), MP и
-  shatter — по-прежнему на событии.
-- **Синхронизация щита при ПОЛНОМ поглощении**: `take_log_damage` вызывается
-  и при damage=0 (условие `damage>0 OR shield_absorbed>0`) в ОБОИХ путях
-  (seq + фолбэк) — иначе зеркало не списывало щит, купол висел с полным
-  запасом при пустом движковом (замер: движок 175 vs зеркало 300).
-- **Обратная связь**: лог движка теперь говорит «Ичиго: щит поглотил удар
-  Самурай (120 урона)!» при полном поглощении и добавляет «Щит поглотил N!»
-  при частичном (compute_attack + execute_skill); на экране — голубая
-  плашка «Щит поглотил N!» над защитником (seq-путь + фолбэк).
-- Проверено: инвариант «щит зеркала == щит движка» 19/19 (прямой путь) и
-  13/13 (кадровый путь _update_battle); купол светился на экране 13/13
-  (overlay.active в кадрах); diag_replay_flow 10/10; py_compile, ruff —
-  чисто. Верификаторы: verify_shield_fix.py / verify_shield_frames.py
-  (C:\Temp — в репо не включены, механика покрыта diag-чеками 5/7).
-- Примечание (глыба, решено Stage 191): модель пользователя теперь канон —
-  ход-очередь: наложение → пропуск (−1 AP, −1 dur) → ход соперника (удар по
-  замороженному = шаттер ×2) → спад по таймеру → жертва ходит. До Stage 191
-  код жил правилом Stage 125/126 «AP НЕ списывается» (двойной пропуск
-  подряд, мгновенный удар после спадания, мёртвый шаттер) — ПРОТИВОРЕЧИЕ
-  документации существовало с Stage 126; Stage 191 выправил код к доке.
-
-**Stage 189 — синхронизация ритма боя; страж зависания реплея (watchdog);
-документация восстановлена (Stage 180-188 записаны в историю):**
-- **Ритм боя** (запрос: «события реплея и анимация живут вразнобой»):
-  EVENT_DELAY_ATTACK 1.5 → **0.2с**. ROOT CAUSE: ранний return в
-  `_update_battle` пока seq активна ЗАМОРАЖИВАЕТ таймер реплея — задержка
-  события отсчитывается ПОСЛЕ анимации, старые 1.5с были мёртвой паузой
-  после возврата бойца (ход ~5.1с, из них 1.3с ничего не происходит).
-  Визуал удара теперь несёт seq (Stage 188), событие ATTACK — короткий
-  бит «после анимации до бухгалтерии» (MP-стоимость, shatter, фолбэк-
-  статусы). Замер: такт ход→ход ровный 3.83с (отклонение <0.01с), −25%
-  длительности боя. ⚠ Если возвращать визуал удара на событие (без seq) —
-  вернуть и длинную задержку.
-- **Страж зависания** (запрос: «диаг ловит до релиза, а в бою тишина»):
-  `_update_battle_watchdog` — меряет ИГРОВОЕ время (учитывает x1-x4) без
-  прогресса реплея (прогресс = смена event_idx ИЛИ фазы seq; отсутствие
-  seq само по себе НЕ прогресс — между событиями законно). Порог
-  `BATTLE_WATCHDOG_TIMEOUT=45с` (макс. легальная пауза — EVENT_DELAY_DIE
-  2.0с, запас ×20); рапорт `[WATCHDOG] нет прогресса Nс: event_idx=…/
-  seq=ФАЗА@x=…/HP обоих` → `_combat_debug_lines` (F10-строка
-  «WATCHDOG: срабатываний=…» видна только когда сработал; при включённом
-  F12 уходит в data/combat_debug.txt). Кэп отчётов
-  `BATTLE_WATCHDOG_REPORT_MAX=6`. НИЧЕГО не чинит сам (авто-починка
-  маскирует баг) — только сигнализирует. Чек «сторож молчит на здоровых
-  боях» встроен в diag_replay_flow (все 10 сценариев).
-  ГОТЧА реализации: прогресс-детект — ТОЛЬКО реальные изменения idx/фазы;
-  наивный `or not seq_active` давал «прогресс» каждый кадр простоя, а
-  безусловный сброс `_watchdog_event_time = 0.0` внизу метода не давал
-  часам набрать порог (ловилось только пробником-инструментацией).
-- **Документация**: MEMORY отставал от кода — Stage 180-187 жили только
-  маркерами в коде. Ниже — реконструкция истории по коду (ПРАВИЛО 1
-  снова работает: контекст-файлы = полная картина).
-- Проверено: diag_replay_flow 10/10 (+ новый чек сторожа); замер такта
-  3.83с ±0.01; watchdog-пробник (здоровый бой молчит / вечная PAUSE
-  срабатывает / кэп 6) — PASS; py_compile, ruff — чисто.
-
----
-
-## Предыдущая версия: v188.0
-
-**Stage 188 — починка анимированного боя (БОЙ был заморожен после 1-й атаки)
-+ диагностический смоук scripts/diag_replay_flow.py (10 сценариев, headless):**
-- **ГЛАВНОЕ: анимированный бой был мёртв на 100% боёв** — регрессия от
-  недокументированного «Аудита 2026-09 (вариант C)»: (а) фаза RUN_BACK
-  AttackSequence НЕ ИМЕЛА обработчика в `_update_attack_sequence` — seq
-  навсегда зависала, early return в `_update_battle` блокировал реплей после
-  первой атаки; (б) HOLD-фаза («стойка победителя» после смертельного удара)
-  тоже была тупиком: её финализатор `_start_endgame` достижим только через
-  заблокированный `_update_combat_replay`. Оба тупика воспроизведены
-  headless-пробником ДО фикса (20 сим-секунд без endgame), подтверждены
-  ПОСЛЕ — 10/10 PASS.
-- **Фиксы (Stage 188):**
-  1. Восстановлен `elif seq.phase == "RUN_BACK":` — интерполяция
-     strike_x→base_x, в конце DONE + idle + исходный flip.
-  2. HOLD завершается по таймеру `ATTACK_SEQ_HOLD_ENDGAME_DELAY=0.9`
-     (новая константа config) → сам вызывает `_start_endgame()`; вводящий
-     в заблуждение комментарий «endgame придёт через visual death check»
-     исправлен (тот check заблокирован тем же early return).
-  3. «Сухой» тик DoT: `StatusManager.on_turn_start(..., apply_damage=False)`
-     — UI-реплей синхронизирует на зеркале только длительности/миграцию
-     статусов; урон несёт POISON_DAMAGE/CLOUD_STRIKE-событие лога. Раньше
-     BEGIN_ATTACK тикал DoT на зеркале ПОЛНОСТЬЮ + событие применяло тот же
-     урон → бары падали от яда вдвое быстрее движка, зеркало умирало на тик
-     раньше, лог дублировал строки тика.
-  4. Статусы скилла применяются в ОДНОЙ точке: seq в `_apply_attack_damage`
-     (момент удара); статус-блок ATTACK-события — только фолбэк без seq
-     (раньше применялся всегда — щит из-за стака удваивался на зеркале).
-  5. `Fighter.take_log_damage(dmg, shield_absorbed)` — приём урона ИЗ ЛОГА:
-     fv.damage уже после щита движка, зеркало списывает shield_absorbed со
-     своего щита и снижает HP напрямую (обычный take_damage поглощал бы
-     второй раз — нашёл diag-сценарий «щит»: зеркало 109 HP vs движок 4).
-  6. `pending_shield_absorbed` в AttackSequence + `_peek_attack_info`.
-- **scripts/diag_replay_flow.py** — headless-смоук реплея (SDL dummy): 10
-  сценариев (обычный/SPEED LAW, победа/поражение с одной атаки через HOLD,
-  яд на обоих, заморозка+shatter, Огненный шар/ranged с автопоиском seed,
-  щит, туча, ничья MAX_BOUT без смертей). Чеки на сценарий: endgame достигнут
-  ≤600 игровых секунд; инвариант «HP зеркала == финальному HP движка»; seq
-  не зависла в RUN_BACK/HOLD; текст endgame соответствует winner; страж
-  зависания молчит (Stage 189). Запуск: `python scripts/diag_replay_flow.py`
-  (exit 0 = OK).
-- Проверено: diag_replay_flow 10/10; 300 боёв движка — инвариант
-  winner/alive/HP=0 цел; dry/wet тик (1000→1000→950) верен; py_compile,
-  ruff — чисто.
-- Примечание: MEMORY отставал от кода — в нём найдены undocumented
-  Stage 180-187 (бафы-расходники 180-184, стаки 183, микро-меню ПКМ
-  185/186, продажа 187). Номер версии выровнен по stage: v188.0. Свои
-  маркеры «Stage 185» аудита в бою ПЕРЕИМЕНОВАНЫ в «Stage 188» (185 занят
-  микро-меню).
-
----
-
-## ВОССТАНОВЛЕННАЯ ИСТОРИЯ (Stage 180-187, код старше доков)
-
-- **Stage 187 (v187)** — продажа через микро-меню: `get_sell_price` —
-  бафы из BUFF_DB.sell_price, костюмы-инстансы 50×(1+0.5·plus); ручная
-  продажа ЛЮБЫХ предметов (баф — 1 шт. из стака через inv_remove; костюм-
-  инстанс удаляется из хранилища при продаже); sell_price=0 (weapon_novice)
-  — «нельзя продать», честный лог; МАССОВАЯ продажа НЕ трогает бафы и
-  костюмы (слот consumable/outfit) — только экипировка.
-- **Stage 186** — Shift+ЛКМ по стак-ячейке ≥2 = «Разделить на 1» в пустую
-  ячейку (быстрая раскладка бафов; `_shift_click_split_one`); фиксы
-  микро-меню: клик ПО КНОПКАМ меню проходит (нет continue в ветках),
-  drag/жест не стартует при открытом меню, нативные координаты события.
-- **Stage 185** — МИКРО-МЕНЮ ПКМ в инвентаре (ПКМ = открыть меню, не
-  активировать!): вертикальный столбец кнопок у курсора — Использовать
-  (баф → activate_buff 1 шт., шмот → надеть с проверкой уровня),
-  Разделить (стак), Продать (цена на кнопке; бафы/костюмы/шмот —
-  исключения см. 187); поля `_micromenu_item_id/_slot/_pos/_rects`;
-  закрывается при смене страницы.
-- **Stage 184** — синтез бафов опыта: 3 ОДИНАКОВЫХ xp-бафа → 1 следующий
-  вид (3×50→100 75%, 3×100→150 50%, 3×150→200 25%;
-  `BUFF_SYNTH_RECIPES`), `buff_synth_preview/execute` (слоты хранят
-  item_id — бафы физически вне инвентаря); окно награды боя — бонус
-  xp-бафов ОТДЕЛЬНОЙ строкой «Опыт: +50 (+350)» (`buffed_xp`,
-  `_endgame_xp_bonus`); цифра стака без тёмной подложки.
-- **Stage 183** — СТАКИ расходников: слот = dict
-  `{"item_id": str, "count": int>0}` (валидация в validate_save), кап
-  `ITEM_STACK_MAX=99`; докупка в неполный стак; распаковка слота
-  `slot_item_id` (str → сам, dict → item_id); счётчик стака в ячейке
-  (тёмная плашка снизу справа); спаны стака 1×1; масса-продажа продаёт
-  каждый предмет стака; `inv_split(page, idx, take)`.
-- **Stage 182** — бафы = предметы 1×1 (slot="consumable",
-  `get_buff_item` → псевдо-предмет); сброс прогрессии снимает ВСЕ
-  активные бафы.
-- **Stage 181** — правила активации: повторная активация того же
-  buff_id ОБНОВЛЯЕТ время (expires = now + duration, не +); бафы одного
-  kind СТАКАЮТСЯ аддитивно (50+100+150+200% = множитель ×6.0);
-  собственное контекст-меню бафа («Активировать»/«Отмена»);
-  тултип бафа (формат ТЗ + время активного бафа).
-- **Stage 180** — PLAYER BUFFS: расходники-бафы на РЕАЛЬНОЕ время
-  (epoch seconds; тикают вне боя и при закрытой игре — истёкшие чистятся
-  лениво); `BUFF_DB` (xp: 50/100/150/200%, atk: 10/25%; иконки из
-  assets/icons/items/); `active_buffs` в сейве (валидация + отброс
-  истёкших при загрузке); kind="xp" — единая точка в gain_xp (бои,
-  башня, гаунтлет, квесты); kind="atk" — % к общему множителю атаки
-  Stage 107; иконки активных бафов под аватаркой (таймеры).
-
----
-
-## Предыдущая версия: v176.0
-
-**Stage 178 — 4 правки по фидбеку: семантика Проб/А.Блок; ЕДИНОЕ окно
-характеристик (игрок = враг визуально); тултипы формул на hover строки
-рейтинга; конвейер экстракции SWF одной командой (extract_swf.py):**
-- **Семантика рейтингов** (запрос: «Пробивание — это пробивание защиты,
-  А.Блок — снижение блока врага»): зашита в тултипы формул
-  (`STAT_TOOLTIPS` в render_skills_charsheet) и проверяется diag.
-- **Единое окно характеристик** (запрос: «у игрока сделай так же, как и у
-  врага, визуально»): `_render_char_sheet` рендерит ИГРОКА и ВРАГА одной
-  компактной схемой — ОЗ/МП (тек/макс) → Атака (min-max) / Скорость →
-  8 рейтингов в 2 колонки (Проб/Защит, А.Блок/Блок, Хит/Уворот,
-  Крит/Стойк.) голыми числами → разделитель → «Навыки». Первичка
-  (Сила/Ловкость/Выносливость), «Крит. урон» и zebra-полосы убраны У
-  ОБОИХ; высота едина `CHAR_SHEET_H=380` (константа CHAR_SHEET_H_ENEMY
-  удалена; было 592/380). Игрок: значения из `recalc_stats()` (кэш кадра),
-  враг — из роли через DEFAULT_BMV_PRICE (как Stage 104). Хелперы:
-  `_build_player_sheet_lines` / `_build_enemy_sheet_lines` → общий формат
-  строк → `_render_sheet_lines` (рисование + hover-детект) →
-  `_render_stat_formula_tooltip`.
-- **Тултипы формул** (запрос: «тултип формул при наведении на строку
-  рейтинга»): при hover на любую из 8 строк рейтингов — подсветка строки
-  + плавающая панель у курсора (флип у краёв): НАЗВАНИЕ (золото) →
-  семантика (2–3 строки с переносом) → разделитель → ФОРМУЛА с
-  фактическим значением (зелёным). Пример Проб: «Пробивание ЗАЩИТЫ
-  игнорирует часть снижения урона от защиты врага. / Проб/(Проб+1354)×100
-  = +42.46% урона сквозь защиту». Все формулы сверены с
-  combat/formulas.py до сотых (гипербола K=1354, ШАГ_А 0.0625, ШАГ_Б
-  0.125, клампы хита [5,100]). Не-рейтинговые строки (ОЗ/МП/Атака/
-  Скорость) тултипа не имеют.
-- **scripts/extract_swf.py** (запрос: «обёртка над FFDec с автопроверкой
-  качества, чтобы новые SWF добавлять одной командой»):
-  `python scripts/extract_swf.py upload/motion_10004_52.s117.swf` —
-  авто-разбор имени (10004→black_samurai, 52→attack), FFDec `-export
-  sprite` (jar теперь постоянно в `~/tools/ffdec`; авто-скачивание с
-  GitHub при отсутствии), 6 проверок качества кадров (frame_count/
-  uniform_size/alpha/density/brightness/distinct; brightness — детект
-  старого бага выцветания: hard 0.05–0.85, warn >0.55), установка в
-  `assets/extracted/<char>/<action>/1..N.png` с заменой + обновление
-  MANIFEST.json. Флаги: `--char/--action/--action-id`, `--dry-run`,
-  `--force`, `--keep-old`, `--no-download`, `--ffdec`. Exit 2 = кадры
-  не прошли проверку (старые НЕ тронуты).
-- Проверено: НОВЫЙ scripts/diag_stage178.py (95 чеков: единое окно
-  380px у обоих, 12 строк схемы + отсутствие первички у ОБОИХ, без
-  «(%)», аватары 0; юнит формул тултипов vs combat/formulas.py; живые
-  hover-тултипы всех 8 рейтингов; семантика «ЗАЩИТЫ»/«БЛОКА ВРАГА»;
-  парсер имён SWF; 5 синтетических кейсов качества) — 95/95;
-  diag_stage177 обновлён (игрок без «Сила») — 48/48; регрессия
-  diag_stage174/161, diag_battle_bg, diag_click_offset (0 dead),
-  diag_e2e_clicks, diag_window_drag, diag_drag_ghost, hidpi_smoke —
-  ALL PASS; ruff, py_compile; скриншоты (окно игрока/врага единые,
-  тултип Пробивания) — сверен.
-- Примечание: upload/ и старые архивы public/ очищены по просьбе
-  пользователя; FFDec перенесён из /tmp в `~/tools/ffdec` (постоянно).
-
-**Stage 177 — 3 правки по фидбеку: тултипы без «Продажа» и без «[RARITY]»;
-чёрный самурай — полная ре-экстракция анимаций из новых SWF; окно
-характеристик в бою — враг по компактной схеме, аватары удалены у обоих:**
-- **Тултипы предметов** (запрос: «убрать с тултипов текст *продажа*, убрать
-  *gray/red/green* — цвет уже видно на иконке, оставить только тип»):
-  - строка «Продажа: N зол.» удалена из тултипа снаряжения (инвентарь,
-    `_render_gear_tooltip`: статы подняты 132→118, min-высота 170→152) и из
-    магазинного тултипа (`_render_shop_tooltip`: статы 84→68, min 140→124);
-    механика продажи НЕ тронута (контекстное меню/логика — `get_sell_price`
-    используется как раньше);
-  - префикс редкости «[GRAY] ОРУЖИЕ» → «ОРУЖИЕ» в тултипе инвентаря и в
-    лут-тултипе быстрых боёв (`_build_loot_tooltip_lines`); цвет редкости
-    читается по рамке/цвету строки (RARITY_RGB остался).
-- **Чёрный самурай (role 10004) — новые анимации** (запрос: «сломалась —
-  стала полупрозрачная, дам исходники заного, старые удали»). Получены
-  5 SWF: `_52`=удар, `_55`=бег, `_57`=смерть, `_64`=получение удара,
-  `_999`=стойка. Пайплайн: JPEXS FFDec 22.0.2 `-export sprite` — рендер
-  кадров DefineSprite в ЕДИНОМ холсте экшена (сырой экспорт
-  DefineBitsJPEG3 давал выцветшие кадры — корень старого бага).
-  Итог: idle 7 / attack 13 / run 4 / death_fall 10 / hit 8 кадров,
-  бинарная плотная альфа, тёмная броня (средняя яркость 0.28).
-  `BLACK_SAMURAI_ACTIONS` id = суффиксам SWF (idle 1→999, attack 5→52);
-  старые кадры удалены, MANIFEST.json дополнен разделом black_samurai.
-- **Окно характеристик в бою** (запрос: схема «Самурай Ур.10 / ОЗ / МП /
-  Атака / Скорость / Проб·Защит / А.Блок·Блок / Хит·Уворот / Крит·Стойк. /
-  иконки навыков», «аватарки удалИ у врагов и у игрока»):
-  - АВАТАРЫ удалены из окна у ИГРОКА и ВРАГА (шапка = имя слева + «Ур.N»
-    справа, разделитель; новый шрифт `font_charsheet_name` 18px — «Черный
-    самурай» влезает в 279px; 28px обрезался);
-  - у ВРАГА — компактная схема: ОЗ/МП (тек/макс) → Атака (min-max),
-    Скорость (2 знака) → 8 рейтингов в 2 колонки (Проб/Защит, А.Блок/Блок,
-    Хит/Уворот, Крит/Стойк.) ГОЛЫМИ числами БЕЗ «(%)»; БЕЗ силы/ловкости/
-    выносливости и «Крит. урон»; хелпер `_render_enemy_sheet_stats`;
-  - окно врага НИЖЕ: `CHAR_SHEET_H_ENEMY=380` (было 592 — полупустое);
-    окно игрока 592 и полная таблица статов СОХРАНЕНЫ (Сила/Ловкость/
-    Выносливость/рейтинги с «(%)» — как было, минус аватар);
-  - блок «Навыки» внизу — общий (у врага свой дек из роли).
-- Проверено: НОВЫЙ scripts/diag_stage177.py (48 чеков: тултипы инвентаря/
-  магазина/лута без «Продажа» и «[»; SWF-маппинг 999/52/55/57/64; кадры
-  7/13/4/10/8; альфа+темнота idle; бой vs mob_3 — 12 строк схемы врага,
-  НЕТ Сила/Ловкость/Выносливость/Крит.урон, рейтинги без «(%)», «Ур.N»,
-  аватары 0 вызовов у обоих) — 48/48; аниматор: 5 экшенов переключаются,
-  смерть замирает на кадре 9/10; регрессия diag_stage174/161, diag_battle_bg,
-  diag_click_offset (0 dead), diag_e2e_clicks, diag_window_drag,
-  diag_drag_ghost, hidpi_smoke (inventory/forge/map) — ALL PASS; ruff,
-  py_compile; скриншоты (окно врага по схеме / окно игрока / бой с новым
-  самураем) — сверен.
-- Примечание: номера Stage 175/176 «сожжены» внутренними метками в
-  docstring npcs_db.py внутри релиза v174 (ре-экстракция жабы); следующий
-  свободный номер — 177 (версия = v175.0 по последней выпущенной).
-
----
-
-## Предыдущая версия: v174.0
-
-**Stage 174 — 4 доработки по фидбеку: Старейшина — кликабельный текст без
-аватара на карте; единое окно NPC (динамическая высота, секции, маленькие
-кнопки); иконка трекера в нижний бар + фикс перехвата кликов стражем ЛН;
-город — иконки только при hover + хаотичные текстовые плашки:**
-
-**Stage 174 — 4 доработки по фидбеку: Старейшина — кликабельный текст без
-аватара на карте; единое окно NPC (динамическая высота, секции, маленькие
-кнопки); иконка трекера в нижний бар + фикс перехвата кликов стражем ЛН;
-город — иконки только при hover + хаотичные текстовые плашки:**
-- **Старейшина = текстовая метка** (`NpcDef.map_text/label_x/label_y`):
-  спрайт/аватар на карте УБРАНЫ — осталась кликабельная плашка «Старейшина
-  деревни» по центру (640,560) ПОД карточками города (`_render_text_label_npc`);
-  аватар теперь ТОЛЬКО внутри диалога. Бейдж «!»/«?», стрелка цели и
-  hover-бабл — над плашкой. Позиции проверены на пересечения (diag).
-- **ЕДИНОЕ окно NPC** (`_render_npc_dialog` переписан): ширина 480 (была 560),
-  высота ДИНАМИЧЕСКАЯ `QUEST_DIALOG_MIN_H=250..MAX_H=430` — окно сжимается,
-  если текста мало (flavor = 250, offer = 350). Жёсткие секции: ШАПКА
-  (аватар 64 + имя + роль) | ЗАДАНИЕ/описание | НАГРАДЫ — разделены линиями
-  `_npc_window_divider`. Кнопки МАЛЕНЬКИЕ: h=28 (`QUEST_DIALOG_BTN_H`, было
-  40), шрифт banner 14 bold, авто-ширина по тексту. Общие хелперы
-  `_npc_window_frame/_divider/_button` в QuestRendererMixin — их же используют
-  диалоги стража Лас Ночеса (раньше — другой стиль/размер 520/560×400,
-  кнопки 40px).
-- **Трекер: иконка в нижний бар** — плавающая кнопка 44×44 УДАЛЕНА
-  (`QUEST_TRACKER_COLLAPSED_SIZE` удалён); сворачивание/разворачивание —
-  слот «Т» (scroll.png → quests.png) в `_render_bottom_bar`, правый край,
-  БЕЙДЖ = число активных квестов. Тост при свёрнутом трекере — над нижним
-  баром.
-- **ФИКС: страж ЛН перехватывал клики трекера** (запрос: «на Лас ночес не
-  получается закрыть окно заданий, спрайт стражника нажимается»): root cause —
-  `_handle_click` брал ПЕРВЫЙ совпавший rect ПО ПОРЯДКУ РЕГИСТРАЦИИ, а страж
-  регистрируется раньше трекера (панель нарисована на его спрайте). Решение —
-  `ClickRect.priority` + ДВУХПРОХОДНЫЙ `_handle_click` (сначала priority:
-  трекер/кнопки диалогов, потом остальное); «las_noches_guardian» добавлен в
-  skip-лист под модалками. Воспроизведено в diag: overlap стража и панели
-  22×20, клик в перекрытие теперь сворачивает трекер и НЕ открывает стража.
-- **Город: иконки только при hover** — вместо зон 160×140 с вечными иконками:
-  текстовые плашки 136×38 с тёмной подложкой + рамкой (читаемость), клик по
-  плашке открывает окно. Иконка (64px) ПЛАВНО проявляется НАД плашкой только
-  при hover (fade 0.22 c через `_card_hover_anim` + `copy().set_alpha` —
-  кэш `_su_image` мутить нельзя); Башня без PNG — программная иконка в
-  SRCALPHA. Позиции слегка хаотичные: `CITY_CARD_POSITIONS` (Арена 440,270 /
-  Магазин 780,235 / Башня 625,405) — без пересечений с «Город», меткой
-  Старейшины, трекером, нижним баром и зонами иконок.
-- Проверено: НОВЫЙ scripts/diag_stage174.py (48 чеков: метка/центр/клик,
-  диалог offer 350 vs flavor 250 + кнопки 28 + priority, трекер без плавающей
-  кнопки + иконка в баре + ЛН-перехват воспроизведён/исправлен, плашки=
-  конфигу + без пересечений + fade 0→1→0, клики окон, жаба осталась спрайтом,
-  аудит мёртвых rect'ов) — 48/48 ×3 запуска; регрессия diag_stage161 (обновлён
-  под Stage 165/174: без блюра, кнопка ЛН h=28), diag_battle_bg,
-  diag_click_offset, diag_e2e_clicks, diag_window_drag, diag_drag_ghost,
-  hidpi_smoke (inventory/map/forge) — ALL PASS; ruff, py_compile; скриншоты
-  (CITY общий/hover/диалог offer/flavor/ЛН) — сверен.
-
----
-
-## Предыдущая версия: v173.0
-
-**Stage 173 — правки квестового блока по заданию пользователя: фикс прыжка
-жабы, трекер в правом нижнем углу, стрелка-подсветка цели после «Перейти»,
-продолжение цепочки — q4 «Победите самураев» (kill_mobs со счётчиком):**
-- **Жаба без обрезанной головы** (assets/extracted/npc_toad_idle/): старый
-  кроп y=62..164 срезал голову в кадре прыжка ПОЛНОСТЬЮ (глаза в raw на
-  строках 17..51). Ре-экстракция: JPEXS `-format shape:png -select
-  3,7,…,35 -export shape` — шейпы-позы (без плашки/глоу/печати, без клипа
-  канвасом), выравнивание по сырым кадрам корреляцией альфы (оффсеты
-  ox 29..38 / oy −126..81), композит на канвас 167×176 (PAD=12 сверху),
-  единый кроп по union-bbox → кадры 121×168. `sprite_h` 150→154
-  (масштаб 150/164 сохранён). Больше НЕ использовать кроп y=62!
-- **Трекер в правом нижнем углу**: `QUEST_TRACKER_Y` удалён →
-  `QUEST_TRACKER_BOTTOM_MARGIN=66` (низ панели на 56+10 над низом экрана,
-  над нижним баром); верх панели вычисляется от фактической высоты контента
-  (1–4 строки); свёрнутая кнопка 44×44 — в тот же угол; тосты НАД панелью
-  (`_render_quest_feedback(above=True)`). Старейшина сдвинут x=1080→920
-  (не прячется под панелью, x≥1000).
-- **Стрелка-подсветка цели** (`QUEST_ARROW_*` в config): после успешного
-  «Перейти» (`_quest_go_to`) над целью 5 c (`QUEST_ARROW_SEC`) качается
-  золотая стрелка остриём вниз: над NPC (поверх бейджа «!»/«?») или над
-  рядом карточек мобов для kill_mobs-цели (`_render_quest_mobs_arrow` из
-  `_render_map`). Цель пересчитывается каждый кадр (`_quest_arrow_target`)
-  из состояния игрока — гаснет при смене локации/сдаче квеста; таймер тикает
-  в run-цикле pygame_ui. «Перейти» теперь ведёт УМНО (`_quest_target_location`):
-  невзятый/готовый к сдаче квест → к giver'у (CITY), активный с невыполненной
-  целью → quest.location (Локация 1 для q4).
-- **q4 «Победите самураев»** (quests_db): goal_type=`kill_mobs`,
-  goal_target=`"samurai"` (префикс enemy_id: samurai_*), goal_count=3,
-  награды 20 опыта + 10 купонов; в цепочке последним. Хук ПОБЕДЫ —
-  `process_battle_rewards` (единая точка обычного и быстрого боя):
-  mob_id → enemy_id через ENEMY_MOBS → `notify_story_quest_kill`
-  (счётчик растёт только пока квест активен, кэп по goal_count;
-  `story_quest_goal_done` = progress ≥ goal_count). Счётчик в сейве:
-  `story_quests_kill_progress` {quest_id: n} — только активные kill_mobs
-  (компакция to_dict/from_dict/turn_in, кэп по goal_count, мусор/сироты
-  отбрасываются; validate_save репортит не-dict/чужие ключи/не-целые).
-  В трекере и диалоге строка цели со счётчиком: «Победите самураев (2/3)»
-  (`_quest_goal_display_text`).
-- ВАЖНО: Локация 1 открывается с 6-го уровня (`LOCATION_MIN_UNLOCK={1:6,…}`)
-  — q4 выдаётся сразу после q3 (~ур. 3), «Перейти» честно отвечает
-  «Локация закрыта — нужен выше уровень», счётчик копится с любого
-  samurai_* на любой открытой локации.
-- Проверено: НОВЫЙ scripts/diag_stage173.py (48 чеков — bbox кадров
-  (голова в прыжке), геометрия трекера (низ/право), тост над панелью,
-  счётчик «(2/3)» в строке, стрелка npc/mobs/таймер/локация, «Перейти»
-  по состоянию) — ALL PASS; diag_stage172 расширен до 83 чеков (q4: цепочка,
-  счётчик, кэп, хук process_battle_rewards, сериализация/мусор/validate) —
-  ALL PASS; регрессия diag_stage161-167/170/171, diag_battle_bg,
-  diag_e2e_clicks, diag_window_drag, diag_drag_ghost, diag_click_offset,
-  hidpi_smoke — ALL PASS; дифф-фаззинг генератора 1050 — идентичен;
-  скриншоты (LOC1 прыжок + стрелка над мобами + трекер внизу; CITY
-  стрелка над старейшиной; свёрнутый трекер) — сверен; py_compile,
-  ruff clean.
-
----
+**Stage 212 — UX drag&drop инвентаря: «полёт» иконки в ячейку (~120мс) и
+пунктирная «домашняя» клетка при перетаскивании (выбор из реестра идей):**
+- **Полёт иконки** (`INV_FLIGHT_MS=120` в config): после дропа в сетку
+  иконка доезжает ease-out (quad) из точки курсора до целевой ячейки
+  (`_inv_spawn_flight` / рендер `_inv_flights` в конце модалки); целевая
+  ячейка на время полёта рисуется ПУСТОЙ (`flight_suppress` по slot_idx,
+  page-keyed) — нет мгновенного прыжка и двойной иконки. Спавны: дроп на
+  пустую клетку (якорная ветка; suppress = слот источника при пере-якоре,
+  free_idx при кросс-странице), кросс-страничный свап (1 полёт, уехавший
+  не виден), same-page свап (2 полёта: брошенный курсор→цель и
+  вытесненный цель→источник). НЕ спавнят: гир-дропы, дроп на табы,
+  синтез/гардероб, отмена/по же клетку.
+- **Пунктир «домашней» клетки**: `_try_start_drag` запоминает rect
+  источника (`_inv_drag_home_rect` + `_inv_drag_home_page`), при drag
+  на месте источника — заливка (39,39,44) + рамка `_draw_dashed_rect`
+  (122,122,132); источник в сетке и так не рисуется, а его клетки —
+  occupied (без подсветки там «дыра»). Гир-drag клетки не имеет;
+  `_finish_drag` сбрасывает в САМОМ начале (любая ветка выхода).
+  Нюанс: `pygame.draw.line` включает endpoint — фактический штрих
+  dash+1px; dash/gap идут через `_su()` (масштаб на 2К).
+- Верификация: `scripts/diag_stage212.py` — 32 чека (хелпер пунктира
+  пиксельно, память клетки, полёты: спавн/поля/suppress/prune по таймеру,
+  свап = 2 полёта, регресс анти-телепорта Stage 211). Скриншоты
+  `/home/z/tmp_stage212/`. Регресс: diag211 36/36, drag_ghost,
+  click_offset, window_drag, battle_bg, e2e_clicks, hidpi_smoke
+  (inventory) — все зелёные; py_compile + ruff чисто.
 
 ## История Stage'ей (ЕДИНСТВЕННЫЙ таймлайн — от новых к старым)
+
+- **Stage 211 (v206.0)** — тултип костюма: подпись тира («Серый») УДАЛЕНА —
+  качество читается цветом имени/рамки/полосы/фона ячейки; имя «Рендзи
+  Абараи» без кавычек и слова «Костюм» (OUTFITS_DB + EQUIPMENT_DB +
+  STARTER_SUITS i290014). Подложка бафов локации светлее
+  ((24,24,28)→(46,46,53), рамки +). АНТИ-ТЕЛЕПОРТ drag&drop (репорт
+  «предметы сами перемещаются в другие ячейки»): якорная память была
+  page-агностичной и копила протухшие позиции → pass-1 крал клетки свежих
+  дропов. Фикс 4 слоями: память ПОСТРАНИЧНА; ТОЧНАЯ перестройка после
+  любого drag (`_inv_anchor_rebuild` = фактические клетки копий);
+  валидация якорей по прошлому кадру (`_inv_prev_cells` + `_inv_anchor_fresh`);
+  чистка при equip/продаже/гардеробе/уходе со страницы + клэмп дропа у края.
+- **Stage 210 (v205.1)** — версия сборки (GAME_VERSION) в заголовке
+  F9-оверлея + экранная плашка 3с с ПОЛНЫМ путём `data/facing_report.txt`
+  (репорт «файл не найти» решён); RUN_BACK cloth14 доказан 4 уровнями
+  (кадры диска → seq → аниматор → рендер): факт был верен, пользователь
+  на старой v204.2.
+- **Stage 209 (v205.0)** — статы Абарая от пользователя (STR 26 (+1.3) /
+  AGI 6 (+0.3) / END 16 (+0.8), bmv 12/30/20, strength_dps) + БАЗА
+  КАЧЕСТВА КОСТЮМОВ: 4 тира Grey/Blue/Purple/Orange, палитры
+  `COSTUME_QUALITY_*` в config, поле quality в OUTFITS_DB/EQUIPMENT_DB,
+  авто-окраска ячеек/тултипов/гардероба. RUN_BACK-инверсия
+  (`seq.flip = not seq.flip`) — ФИНАЛ саги фейсинга: база скинов без
+  зеркала, инверсия только на отходе; RULES П13 переписан (п.5/7/8).
+- **Stage 208 (v204.2)** — F9-фейсинг-оверлей (folder | flip | СМОТРИТ X |
+  ожид. Y, факт✗/✓) + репорт в data/facing_report.txt; тест-панель F8
+  (TEST_BATTLE dev-режим). «Скины не зеркалятся нигде» — позже отменено
+  Stage 209 (RUN_BACK-инверсия возвращена).
+- **Stage 207 (v204.1)** — фикс фейсинга Абарая в атаке/беге: инверсия
+  RUN_BACK по семантике «бежит домой ЛИЦОМ ПО ДВИЖЕНИЮ» (P→LEFT,
+  E→RIGHT); diag_stage207 (флип по фазам, ichigo/враг 1:1).
+- **Stage 206 (v204.0)** — cloth14 = «Рендзи АБАРАИ» (НЕ «Сакура», ошибка
+  Stage 205): полная привязка облика к костюму — аватар
+  (Suit.avatar_filename + resolve_player_suit), имя, поза, статы
+  переключаются с анимациями и обратно.
 
 - **Stage 205 (v203.0)** — костюм cloth14 «Сакура»: первый скин игрока со
   СВОИМИ анимациями боя. Экстракция FFDec `-export sprite` (32 кадра,
@@ -1156,7 +152,7 @@ _drop_shadow; стеклянный блик полосок:**
   реплея заморожен во время seq — короткий бит после анимации, −25% ход);
   страж зависания `_update_battle_watchdog` (BATTLE_WATCHDOG_TIMEOUT=45с,
   рапорт в F10/F12, кэп 6, ничего не чинит; чек молчания в diag);
-  документация: Stage 180-188 восстановлены в истории (см. блок выше).
+  документация: Stage 180-188 восстановлены в истории.
 - **Stage 188 (v188.0)** — починка анимированного боя: восстановлен
   обработчик RUN_BACK (бой замирал после 1-й атаки), HOLD завершается
   таймером 0.9с → _start_endgame; «сухой» тик DoT зеркала
@@ -1170,7 +166,10 @@ _drop_shadow; стеклянный блик полосок:**
   ≤99 в инвентаре, синтез бафов опыта 3→1 (75/50/25%), xp-бонус в окне
   награды, микро-меню ПКМ (Использовать/Разделить/Продать), Shift+ЛКМ
   «разделить 1 шт.», ручная продажа любых (бафы/костюмы с ценой,
-  масс-продажа их не трогает). Детали — блок «ВОССТАНОВЛЕННАЯ ИСТОРИЯ».
+  масс-продажа их не трогает), `inv_split`, `get_sell_price` (баф — из
+  BUFF_DB, костюм-инстанс 50×(1+0.5·plus); sell_price=0 — «нельзя
+  продать»); rolling-механика Stage 186/187: Shift+ЛКМ и микро-меню
+  работают поверх стаков без распаковки данных.
 - **Stage 177 (v175.0)** — 3 правки фидбека: тултипы — «Продажа» удалена
   (инвентарь+магазин), префикс «[RARITY]» удалён (инвентарь+лут, остался
   только тип); чёрный самурай — полная ре-экстракция из новых SWF
@@ -1628,6 +627,22 @@ _drop_shadow; стеклянный блик полосок:**
 - **Упаковка (RULE 5)**: включать `src/pockie_rpg/data/`, исключать только корневую `data/` (сейвы) — в архиве v134.0 пакет data/ отсутствовал.
 
 ### UI
+- **Якоря инвентаря = ТОЧНЫЕ клетки копий (Stage 211)** — «протухший»
+  свободный якорь в памяти = телепорт предмета и кража клетки у свежего
+  дропа (pass-1 идёт по порядку данных). Любой путь перемещения/удаления
+  предмета ОБЯЗАН перестроить/забыть якоря: drag → `_inv_anchor_rebuild`,
+  уход со страницы/equip/продажа → `_inv_anchor_forget_page`/pop. Валидация
+  по прошлому кадру (`_inv_prev_cells`) — страховка от путей в обход UI.
+- **Стаки (dict-слоты) НЕ хэшируемы** — слот инвентаря может быть dict
+  (`{"item_id","count"}`): в dict-ключи/множества идёт только
+  `slot_item_id(entry)` (Stage 211: кросс-страничный свап стака падал
+  TypeError unhashable).
+- **Полёты иконок (Stage 212)**: `_inv_flights[].suppress` прячет слот по
+  slot_idx ТОЛЬКО на своей странице (page-keyed); prune — по
+  `INV_FLIGHT_MS` при рендере модалки. Полёт спавнится ПОСЛЕ мутации
+  данных — suppress-слот = где предмет ОКАЖЕТСЯ (пере-якорь — слот
+  источника, кросс-страница — free_idx, свап — оба слота). `pygame.draw.line`
+  включает endpoint — штрих пунктира фактически dash+1px.
 - **Skin-анимации игрока (Stage 205)** — надетый костюм с `motion_skin` меняет
   ВСЕ папки действий через `IdleAnimator.skin_actions`; неизвестное действие →
   fallback на idle-папку скина; suit_ichigo без motion_skin = классика (None).
@@ -1789,456 +804,260 @@ _drop_shadow; стеклянный блик полосок:**
 
 ## Реестр идей (ПРАВИЛО 3)
 
-Статусы: `[ ]` предложено · `[→]` в работе · `[x]` реализовано (см. таймлайн) ·
-`[~]` отклонено · `[⏸]` on hold по решению пользователя.
+Статусы: `[ ]` предложено · `[→]` в работе · `[~]` отклонено · `[⏸]` on hold.
+Реализованное из реестра УДАЛЯЕТСЯ (результат — в таймлайне) — Stage 212.
 
 ### [⏸] ON HOLD — пользователь явно запретил (пока)
 - ⏸ Дроп-таблицы `MOB_DROP_TABLES` для Локаций 2/3/4.
 - ⏸ Новые враги/мобы для других локаций.
-- ⏸ Балансировка вне Локации 1 (в т.ч. перебаланс мобов под 27 зон карты).
+- ⏸ Балансировка вне Локации 1 (в т.ч. перебаланс мобов под 27 зон).
 > Фокус на Локации 1 — сначала статы/уровни/шмот. НЕ предлагать как «новые».
 
 ### Открытые идеи
 
+**Инвентарь / drag&drop**
+- [ ] ⚡ ПКМ-меню стака: «Взять 1» / «Взять половину» (inv_split есть — Stage 185, не хватает UI-обёртки).
+- [ ] 💡 Бейдж количества на стаках: обводка цифры (контраст на светлых иконках).
+- [ ] ⚡ F11-оверлей якорей (diag: клетки-якоря полупрозрачными квадратами) — по образцу F9/F10.
+- [ ] 💡 Hover пустой ячейки вне drag: тонкая рамка «сюда можно положить».
+- [ ] ⚡ Анимация «взлёта» при старте drag (~80мс клетка→курсор) — симметрия полёту дропа (Stage 212).
+- [ ] ⚡ Микропульс целевой ячейки после прилёта полёта (scale 1.06→1.0, ~100мс) — тактильный settle.
+- [ ] ⚡ ESC отменяет активный drag (сейчас прерывается только mouse-up вне целей).
+- [ ] 💡 Колесо мыши над сеткой = листание страниц инвентаря (10 вкладок вслепую не листать).
+- [ ] ⚡ SFX инвентаря (pick/drop/swap) через существующий SOUND_ENABLED=False hook — «клац» синхронно с прилётом полёта.
+- [ ] 💡 Ctrl+Z «отмена последнего дропа» (стек глубины 1: слоты + якоря откатываются).
+- [ ] 💡 Магнитный pre-drop snap: призрак примагничивается к валидной клетке при медленном дропе.
+
 **Нативный бой / Hi-DPI (Stage 201)**
-- [ ] ⚡ render_worldmap: последние модульные шрифты `_F_WM_*` → _su_font —
-      тогда pygame.font.init()-костыль в render_battle можно снять.
-- [x] ⚡ Плавное появление окна боя (fade-in 0.15с как у инвентаря,
-      Stage 152) — Stage 202: _battle_window_fade, альфа в present
-      (окно+рамка+затемнение; фон-снапшот не фейдится).
-- [x] 💡 `_render_hud` разросся до ~320 строк — разбить на
-      _render_hud_player / _render_hud_enemy (симметричные половины) —
-      Stage 202: 5 методов, половины возвращают якоря полосок
-      (_render_name_plate НЕ выделялся — плашки остались в половинах).
-- [x] 💡 Тултип статуса и лут-тултип — единый «рисованную панель у
-      курсора» хелпер (общие паддинги/рамка/флип) — Stage 202:
-      ui/tooltip.py (TooltipLine/PanelStyle/render_tooltip_panel).
-- [ ] 💡 Аудит §1.2 п.5: smoothscale → scale в present-ветке legacy боя
-      (не-2К окна) — визуальная проверка на мониторе перед включением.
+- [ ] ⚡ render_worldmap: модульные шрифты `_F_WM_*` → _su_font (снимет pygame.font.init()-костыль render_battle).
+- [ ] 💡 Аудит §1.2 п.5: smoothscale → scale в present-ветке legacy боя — визуальная проверка перед включением.
 
 **Бой / HUD (Stage 202)**
-- [ ] ⚡ Крит-числа урона: слой-аутлайн вместо smoothscale-пульса в
-      flash-фазе (минус ресемпл каждый кадр пульса).
-- [ ] ⚡ Лут-тултип: курсор-якорь как у статуса (anchor=None в хелпере) —
-      единое поведение всех тултипов боя (сейчас лут крепится к слоту).
-- [ ] ⚡ verify_stage202.py: +чек fade в legacy-пути (не-2К монитор) и
-      anchor-флип у нижней кромки экрана.
-- [ ] 💡 _render_bar ~90 строк: ghost/градиент в единые
-      _static_surface-примитивы (ghost рисуется каждый кадр).
-- [ ] 💡 Единый fade-хелпер present-слоя (dim+рамка+окно) — обобщить
-      инлайн fade-логику _present_fullscreen для будущих экранов.
+- [ ] ⚡ Крит-числа урона: слой-аутлайн вместо smoothscale-пульса в flash-фазе.
+- [ ] ⚡ Лут-тултип: курсор-якорь как у статуса (anchor=None) — единое поведение тултипов боя.
+- [ ] ⚡ verify_stage202.py: +чек fade в legacy-пути и anchor-флип у нижней кромки.
+- [ ] 💡 _render_bar ~90 строк: ghost/градиент в _static_surface-примитивы (ghost рисуется каждый кадр).
+- [ ] 💡 Единый fade-хелпер present-слоя (dim+рамка+окно) для будущих экранов.
 
 **Рефакторинг UI (Stage 203)**
-- [ ] ⚡ UI_THEME: кодмод-миграция топ-20 самых частых RGB-троек
-      (~700 из ~940) через разовый скрипт + eyeball-скриншоты MAP/боя.
-- [ ] ⚡ _render_skill_tooltip: pixel-перенос через хелпер-обёртку +
-      _su_font вместо посимвольного _wrap_text и фиксированных
-      font_skills_* (проверить фазу рендера чар-листа на 2К).
-- [ ] ⚡ hidpi_smoke: +кейс hover иконки бафа MAP (баф-тултип через хелпер
-      сейчас не покрыт смоуком).
-- [ ] 💡 STATUS_TOOLTIPS: третье поле «шаблон строки хода» (data-driven
-      вместо f-string в _render_status_tooltip).
-- [ ] 💡 _su_surface_cache: LRU-кап (fit-иконки/градиенты/рамки копятся,
-      аудит 5.2 стиль — у _su_text кап 2048 уже есть).
-- [ ] 💡 config: константы-дубликаты значений UI_THEME (MAP_PANEL_BORDER
-      == gold и т.п.) → ссылки на UI_THEME (единый источник значений).
-- [ ] 💡 TooltipLine: hanging indent для перенесённых строк (описания
-      скиллов/бафов читаются чище).
+- [ ] ⚡ UI_THEME: кодмод топ-20 RGB-троек (~700 из ~940) разовым скриптом + eyeball-скриншоты MAP/боя.
+- [ ] ⚡ _render_skill_tooltip: pixel-перенос через хелпер + _su_font (проверить фазу чар-листа на 2К).
+- [ ] ⚡ hidpi_smoke: +кейс hover иконки бафа MAP.
+- [ ] 💡 STATUS_TOOLTIPS: третье поле «шаблон строки хода» (data-driven вместо f-string).
+- [ ] 💡 _su_surface_cache: LRU-кап (fit-иконки/градиенты/рамки копятся; у _su_text кап 2048 есть).
+- [ ] 💡 config: константы-дубликаты UI_THEME → ссылки на UI_THEME (единый источник значений).
+- [ ] 💡 TooltipLine: hanging indent перенесённых строк.
 
-**Геймплей / контент (Stage 177)**
-- [ ] 🔥 Проб/А.Блок у мобов всегда 0 — дать элитным мобам (боссы Лас Ночеса,
-      башня 50+/100) ненулевые pierce/antiblock — новые строки окна врага
-      оживут (сейчас левая колонка всегда «0»).
-- [ ] ⚡ Сравнение с игроком в окне врага: рядом с каждым рейтингом маленький
-      «▲/▼/＝» (выше/ниже/равно игроку) — читается мгновенно.
-- [ ] ⚡ Наведение на строку рейтинга врага → тултип с формулой («Пробивание:
-      снижает эффект блока цели…» — те же формулы, что Stage 104).
-- [ ] 💡 Kill-камера: после death_fall врага — замедление последних 3 кадров
-      ×0.5 (драматичнее финал боя).
-- [x] 💡 Единый пайплайн экстракции: scripts/extract_swf.py (обёртка ffdec
-      `-export sprite` + авто-проверка яркости/альфы/количества кадров) —
-      Stage 205 частично: jar восстановлен в `~/tools/ffdec` (постоянно),
-      экстракция cloth14 выполнена вручную той же командой; обёртка-скрипт
-      всё ещё НЕ восстановлена (при частых новых SWF — вернуть).
+**Геймплей / контент**
+- [ ] 🔥 Проб/А.Блок у мобов всегда 0 — элитным (боссы ЛН, башня 50+/100) ненулевые pierce/antiblock.
+- [ ] ⚡ Сравнение с игроком в окне врага: «▲/▼/＝» у каждого рейтинга.
+- [ ] ⚡ Hover на строке рейтинга врага → тултип с формулой (те же, что Stage 104).
+- [ ] 💡 Kill-камера: замедление последних 3 кадров ×0.5 после death_fall.
+- [ ] ⚡ Экстракция: восстановить обёртку scripts/extract_swf.py (валидация яркости/альфы/кадров; jar — ~/tools/ffdec).
 
-**Скины игрока (Stage 205/206)**
-- [x] ⚡ Аватарки cloth14 (Stage 206): userface_0_14_role.gif заведён через
-      Suit.avatar_filename + resolve_player_suit; HUD-аватар/имя/поза
-      инвентаря переключаются надетым костюмом (и обратно).
-- [x] ⚡ Статы/имя cloth14 уточнены (Stage 206): пользователь назвал
-      персонажа — Ренджи АБАРАИ (не Сакура); archetype strength_dps
-      (base 15/8/12, bmv 12/30/20) — при желании балянс сверить с оригиналом.
-- [ ] ⚡ Живое превью скина в гардеробе/инвентаре: при hover на костюм с
-      motion_skin — анимированный idle скина вместо статичной иконки
-      (ассеты уже в памяти ассет-менеджера).
-- [ ] 💡 Превью персонажа на MAP в надетом скине (карточка персонажа):
-      сейчас костюм виден только в бою — маленький спрайт idle у аватара.
-- [ ] 💡 Idle-варианты cloth14: у Ичиго есть idle_bored/idle_breath_long,
-      у cloth14 только базовый 998 — попросить у пользователя SWF
-      доп. idling (в оригинале это motion_0_14_59/60_*) или фолбэк на базу.
-- [ ] 💡 ACTION_FPS per-skin: 11-кадровый attack cloth14 с hold'ами на 14 fps
-      может ощущаться медленнее ичиго-удара — пер-скинная таблица fps
-      (PLAYER_MOTION_SKINS[name] → {folder, fps}) по ощущению на мониторе.
-- [ ] 💡 F9 hotkey смены скина (Tab в TEST_BATTLE): мгновенная визуальная
-      проверка анимаций всех скинов без выхода в инвентарь.
-- [ ] 💡 Конвенция «скин = папка»: авто-диаг (расширить diag_stage205)
-      перечислением OUTFITS_DB.motion_skin → проверка наличия всех 5 папок
-      и кадры не-placeholder (ловит опечатки при добавлении новых скинов).
-- [ ] 🔥 Навыки от костюма (следующий шаг «всё привязано к костюму»):
-      у скинов в оригинале Pockie Ninja были СВОИ деки навыков —
-      OUTFITS_DB["skills"] + SwitchSkills при надевании (как статы);
-      Абараи — силовая дека (Забиммару-стайл).
-- [ ] ⚡ diag-валидация Suit-записей: для каждого STARTER_SUITS проверять
-      существование avatar (assets/icons/avatar/), pose (icons/character/)
-      и motion_folder (extracted/) — ловит опечатки при добавлении скинов
-      (сейчас проверяется только cloth14 вручную в diag_stage206).
-- [ ] ⚡ Attack-эффект per-skin: у Абарая атака могла бы иметь свой overlay
-      (выпад Забиммару) — расширить PLAYER_MOTION_SKINS[action → {folder,
-      effect}] и спавнить CastEffect-подобный оверлей в фазе удара.
-- [ ] 💡 Цвет плашки имени игрока от костюма (тип костюма → цвет:
-      strength — красный, agility — зелёный…): HUD_THEME + suit.type.
-- [ ] 💡 Мини-бейдж скина у аватара HUD (маленькая иконка надетого костюма
-      в углу аватара — видно активный скин и на карте, и в бою).
-- [ ] ⚡ diag_facing-валидация (урок Stage 207): для каждой папки из
-      INTRINSIC_FACING проверить, что ключ реально существует (опечатка
-      ключа тихо уводит папку на alpha-mass эвристику — она врёт на
-      причёсках/хвостах) + что все папки скинов присутствуют в dict.
-- [ ] 💡 MANIFEST.json: поле facing для каждого скина (source + final,
-      напр. «cloth14: source LEFT → pre-flipped RIGHT») — память конвейера
-      для будущих костюмов (пользователь сообщает направление при передаче).
-- [ ] ⚡ Спринт-пыль: частицы у ног в момент старта RUN_FORWARD и разворота
-      RUN_BACK (заземляет рывок, дешёвый particles.spawn).
-- [ ] 💡 Ролевые скины для врагов: skin_actions сейчас only is_player —
-      обобщить на не-игроков (элитные мобы/боссы с уникальными сетами
-      анимаций через ту же INTRINSIC_FACING/base_flip-механику).
-- [x] ⚡ F9-оверлей отладки анимации: мини-строка folder+flip обоих
-      аниматоров (видно фейсинг/папку скина живьём при отладке). [→ Stage 208:
-      реализован + фаза seq + цветовая индикация flip; тест-панель на F8]
+**Скины игрока (Stage 205/209)**
+- [ ] ⚡ Живое превью скина в гардеробе/инвентаре: при hover — анимированный idle вместо статичной иконки.
+- [ ] 💡 Превью персонажа на MAP в надетом скине (карточка персонажа).
+- [ ] 💡 Idle-варианты cloth14 (сейчас только 998; попросить SWF motion_0_14_59/60 или фолбэк).
+- [ ] 💡 ACTION_FPS per-skin: PLAYER_MOTION_SKINS[name] → {folder, fps}.
+- [ ] ⚡ Плавный «разворот на месте» перед RUN_BACK (~0.1с кадр-поворот между ATTACK и отходом).
+- [ ] 💡 Покадровый дамп отхода (F11 → data/runback_frames/).
+- [ ] ⚡ verify_facing_full: полный прогон боя в scripts/ (перенести /home/z/tmp_scan/verify_runback_full.py).
+- [ ] 💡 Конвенция «скин = папка»: авто-диаг OUTFITS_DB.motion_skin → наличие 5 папок + не-placeholder кадры.
+- [ ] 🔥 Навыки от костюма: OUTFITS_DB["skills"] + SwitchSkills при надевании (Абараи — силовая дека).
+- [ ] ⚡ diag-валидация Suit-записей: avatar (icons/avatar/), pose (icons/character/), motion_folder (extracted/) существуют.
+- [ ] ⚡ Attack-эффект per-skin: PLAYER_MOTION_SKINS[action → {folder, effect}] + оверлей в фазе удара.
+- [ ] 💡 Цвет плашки имени игрока от типа костюма (strength — красный, agility — зелёный…).
+- [ ] 💡 Мини-бейдж скина у аватара HUD (видно активный костюм и на карте, и в бою).
+- [ ] ⚡ diag_facing-валидация: ключи INTRINSIC_FACING существуют (опечатка тихо уводит папку на alpha-эвристику — врёт на причёсках/хвостах).
+- [ ] 💡 MANIFEST.json: поле facing для каждого скина (source → final).
+- [ ] ⚡ Спринт-пыль у ног (старт RUN_FORWARD / разворот RUN_BACK) — дешёвый particles.spawn.
+- [ ] 💡 Ролевые скины для врагов: обобщить skin_actions на не-игроков (элита/боссы).
+- [ ] ⚡ Плашка имени в бою цветом качества костюма (resolve_player_suit → COSTUME_QUALITY_RGB).
+- [ ] ⚡ Сортировка/фильтр гардероба по качеству + счётчики тиров в шапке.
+- [ ] ⚡ Синтез × качество: тир костюма-ингредиента повышает шанс результата.
+- [ ] 💡 Пульс-анимация рамки Orange-костюмов (слот знает тир — таймер-модулированный цвет).
+- [ ] ⚡ Реестр 15+ костюмов одним файлом data/costumes.json + загрузчик (партия костюмов = один JSON по П17).
+- [ ] 💡 F9-репорт с историей: append + ротация последних N снимков.
+- [ ] 💡 Тир-бонусы костюмов (напр. Orange +5% статов) + строка эффекта в тултипе.
 
-**Рефакторинг / аудит 4.3 (дальнейшая дедупликация)**
-- [ ] ⚡ Тултип предмета: 3 копии layout-логики (inventory/shop/quick_battle)
-      → один общий рендер-хелпер с параметрами источника.
-- [ ] ⚡ Сброс боевого состояния: 4 места → все через _reset_battle_common_state
-      (+ общая точка для test_battle.py).
-- [ ] 💡 Сырые RGB-тройки (~940) → семантические константы config/UI_THEME
-      (постепенно, по экранам; RARITY_RGB уже есть).
-- [ ] 💡 _GENERATOR_SPECS: вынести sell_base×10 в поле спецификации «цена за
-      единицу главного стата» (сейчас ×10 захардкожен в generate_item).
-- [ ] 💡 weapon: добавить item_type="weapon" в генератор + миграцию при
-      загрузке сейва — устранить единственное исключение в shape предмета.
-- [ ] 💡 Ревизия «исторических» комментариев Stage 108-128 в EQUIPMENT_DB
-      (упоминания старых функций/логики) — чистить при следующем касании.
-- [x] 💡 Звание tower_conqueror — добавлено в titles_db (Stage 170, A4:
-      «Покоритель Башни», tier 13, статы чуть ниже legend).
+**Рефакторинг / аудит 4.3**
+- [ ] ⚡ Тултип предмета: 3 копии layout (inventory/shop/quick_battle) — по мере касания (аудит: структуры разошлись, ratio <0.70).
+- [ ] 💡 Сырые RGB-тройки (~940) → семантические константы UI_THEME (постепенно, по экранам).
+- [ ] 💡 _GENERATOR_SPECS: sell_base×10 в поле спецификации «цена за единицу главного стата».
+- [ ] 💡 weapon: item_type="weapon" в генератор + миграция при загрузке сейва.
+- [ ] 💡 Ревизия исторических комментариев Stage 108-128 в EQUIPMENT_DB (чистить при касании).
 
 **Hi-DPI / рендер**
-- [ ] 🔥 Бой нативно — ПОСЛЕДНИМ: окно 60% + блюр-фон + спрайты/оверлеи на
-      SPRITE_BASE_Y/actual_x; нужен пересчёт боевого окна и снапшота блюра.
+- [ ] 🔥 Бой нативно — ПОСЛЕДНИМ: окно 60% + блюр-фон + спрайты на SPRITE_BASE_Y/actual_x.
 - [ ] ⚡ Char sheet / навыки нативно — плотные таблицы статов, мыло заметнее всего.
-- [ ] ⚡ Мелкие модалки пакетом (башня/дейлики/слот-машина/quick battle) — сейчас
-      читаемы за счёт MODAL_SCALE_2K=1.0.
-- [ ] ⚡ Мировая карта нативно — свой WORLDMAP_SCALE + маски; хиттест в трёх
-      пространствах (экран → панель → карта).
-- [ ] ⚡ HD-иконки: оффлайн-апскейл 24×24 → 96×96 (xBRZ/ESRGAN) в
-      assets/icons/items_hd/ — снять кап апскейла ×1.3.
-- [ ] 💡 Единый `_blit_icon` для гира и гемов (дублируют логику масштаба/кэша).
-- [ ] 💡 Виньетку из инвентаря — в общий хелпер (панелям кузницы/магазина бесплатно).
+- [ ] ⚡ Мелкие модалки пакетом (башня/дейлики/слот-машина/quick battle).
+- [ ] ⚡ Мировая карта нативно — свой WORLDMAP_SCALE + маски; хиттест в трёх пространствах.
+- [ ] ⚡ HD-иконки: оффлайн-апскейл 24×24 → 96×96 (xBRZ/ESRGAN) в assets/icons/items_hd/ — снять кап ×1.3.
+- [ ] 💡 Единый `_blit_icon` для гира и гемов (дублируют масштаб/кэш).
+- [ ] 💡 Виньетку из инвентаря — в общий хелпер (кузнице/магазину бесплатно).
 - [ ] 💡 F10: счётчики image.load/smoothscale за кадр.
 - [ ] 💡 Прогрев кэшей при старте (иконки первой страницы, шрифты, фон локации).
 - [ ] 💡 MODAL_FADE_SEC в settings (0 / 0.15 / 0.3).
-- [ ] 💡 Демонтаж legacy-пути после миграции ВСЕХ экранов (_render_modal_scaled,
-      MODAL_SCALE*, _legacy_layer, буфер 1280×720).
-- [ ] 🔥 Пресеты плотности UI: глобальный UI_DENSITY (компакт 0.9 / обычный 1.0 /
-      просторный 1.1) — реализация анализа «как уменьшать окна» (PROJECT_PROMPT
-      §8.7): все окна через один фактор + паддинги/зазоры/шапка от него.
-- [ ] 💡 Единый координатный хелпер хиттеста модалок: rect'ы слотов/зон снимать
-      при рендере (как `_wardrobe_layout`) вместо пересчёта в event-контексте —
-      class ошибок «дроп/клик мимо на 2К» (Stage 163) исчезает как таковой.
-- [ ] 💡 Drag из gear-слота в слоты синтеза (сейчас только из инвентаря;
-      Stage 164 упростил задачу — слоты хранят item_id, осталось определить
-      поведение: снять надетый костюм прямо в слот).
-- [ ] 💡 Подсказка «куда что класть» при drag в синтезе (тексты ГЛАВНЫЙ/КАТ
-      подсвечивать по валидности модели/плюса).
-- [~] ⚡ Универсальный блюр-хелпер модалок `_render_blur_backdrop(key)` —
-      был реализован (Stage 162), но ПОЛЬЗОВАТЕЛЬ попросил убрать подложки
-      (жалоба «резкая вспышка») — СИСТЕМА УДАЛЕНА в Stage 165; окна теперь
-      рисуются поверх неизменённой живой сцены.
+- [ ] 💡 Демонтаж legacy-пути после миграции ВСЕХ экранов (_render_modal_scaled, MODAL_SCALE*, буфер 1280×720).
+- [ ] 🔥 Пресеты плотности UI: глобальный UI_DENSITY (0.9/1.0/1.1) — все окна через один фактор (анализ §8.7 PROJECT_PROMPT).
+- [ ] 💡 Единый координатный хелпер хиттеста модалок: rect'ы снимать при рендере (class ошибок «дроп мимо на 2К» исчезает).
+- [ ] 💡 Drag из gear-слота в слоты синтеза (слоты хранят item_id — осталось поведение «снять прямо в слот»).
+- [ ] 💡 Подсказка «куда что класть» при drag в синтезе (подсветка ГЛАВНЫЙ/КАТ по валидности).
 
 **Бой: механика и навыки**
-- [x] 🔥 Смоук реплея: scripts/diag_replay_flow.py — headless-прогон 10
-      сценариев с чеком «endgame достигнут + HP зеркала == движку» (Stage 188;
-      поймал тупики RUN_BACK/HOLD и двойной DoT).
-- [ ] 🔥 Огненный шар — фазовый рендер по контент-центрам кадров: заряд (0-9) /
-      полёт (10-13) / взрыв (14-17), пустые хвостовые кадры (18-20) не играть;
-      урон в момент первого кадра взрыва.
-- [ ] 🔥 Char sheet в бою читает runtime `Fighter`, а не PlayerState/Role —
-      дебаффы невидимы, лист врага врёт.
-- [x] ⚡ Реплей-синк статусов зеркала с движком — Stage 188 (сухой тик DoT +
-      take_log_damage + единая точка статусов скиллов; инвариант HP в diag).
+- [ ] 🔥 Огненный шар — фазовый рендер по контент-центрам кадров (заряд 0-9 / полёт 10-13 / взрыв 14-17; пустые 18-20 не играть).
+- [ ] 🔥 Char sheet в бою читает runtime `Fighter`, а не PlayerState/Role — дебаффы невидимы, лист врага врёт.
 - [ ] ⚡ Статы counter / lifesteal / rebound / decDamage — событийная модель уже поддерживает.
-- [ ] ⚡ Расширение SKILL_REGISTRY до 15-20 навыков через существующие типы
-      (Chidori, Rasengan и др.).
+- [ ] ⚡ Расширение SKILL_REGISTRY до 15-20 навыков через существующие типы (Chidori, Rasengan…).
 - [ ] ⚡ Прокачка навыков до L10 за gold/камни (SKILL_CONFIG.maxLevel оригинала).
-- [ ] ⚡ Передача FightValue в AttackSequence вместо 16+ pending_* полей
-      (Stage 188 добавил pending_shield_absorbed — полная замена по мере касания).
+- [ ] ⚡ Передача FightValue в AttackSequence вместо 16+ pending_* полей.
 - [ ] 💡 Генерализация ProjectileEffect под несколько дальнобойных навыков.
 - [ ] 💡 Центры контента оверлеев ice/shield/cloud — та же болезнь привязки, что у файрбола.
-- [ ] 💡 Стихийные бонусы SkillAdd0-9 (огонь/вода/земля/молния/ветер/тело/…).
+- [ ] 💡 Стихийные бонусы SkillAdd0-9 (огонь/вода/земля/молния/ветер/тело…).
 - [ ] 💡 Заголовок боевого окна: имя врага над рамкой.
 - [ ] 💡 Затемнение фона сильнее при endgame-оверлеях.
-- [ ] ⚡ Сводка боя после победы: DPS/промахи/блоки/криты из FightSave
-      (реплей уже хранит все события — агрегировать при финале).
+- [ ] ⚡ Сводка боя после победы: DPS/промахи/блоки/криты из FightSave (реплей хранит все события).
 
 **Прогрессия и контент**
-- [ ] 🔥 Осмысленные имена 27 локаций (правка name в assets/worldmap/config.json).
-- [ ] ⚡ Гир с antiblock/defense_break: ключи есть в SECONDARY_STAT_POOL, шаблоны не роллят.
-- [ ] ⚡ Продолжение сюжетной цепочки (q4+): «Победите N самураев на Локации 1»
-      — нужен новый goal_type="kill_mobs" со счётчиком в сейве и прогрессом
-      «2/3» в трекере (хук из process_battle_rewards).
-- [ ] ⚡ Стрелка-маркер над NPC-целью после «Перейти» (подсветка, к кому идти,
-      2-3 с или пока игрок не кликнет NPC).
+- [ ] 🔥 Осмысленные имена 27 локаций (assets/worldmap/config.json → name).
+- [ ] ⚡ Гир с antiblock/defense_break: ключи в SECONDARY_STAT_POOL есть, шаблоны не роллят.
+- [ ] ⚡ q5+: продолжение сюжетной цепочки после q4 (механика kill_mobs готова — Stage 173).
 - [ ] 💡 Выбор награды в сюжетных квестах (1 из 2-3 предметов).
-- [ ] 💡 Жаба как торговец/загадка (ква-квест за камни) — контент для NPC без квестов.
+- [ ] 💡 Жаба как торговец/загадка (ква-квест за камни).
 - [ ] 💡 Персист состояния трекера в сейв (свернут/вкладка) — стиль window_positions.
-- [ ] 💡 История реплик диалогов (лог беседы со Старейшиной, повторный просмотр).
-- [ ] 💡 Аутфиты как коллекция: 5-8 костюмов с разными наборами навыков.
-- [ ] 💡 Костюмы в гардеробе дают пассивный бонус коллекции (как в оригинале).
+- [ ] 💡 История реплик диалогов (повторный просмотр беседы со Старейшиной).
+- [ ] 💡 Аутфиты как коллекция: 5-8 костюмов с разными наборами навыков + пассив коллекции.
 - [ ] 💡 Синтез гира (не только костюмов) — расширить _outfit_model_of.
-- [ ] 💡 Звание tower_conqueror (tower_db ссылается, titles_db не знает).
 - [ ] 💡 Konoha Boutique — слот-машина 5×3 (линии × множитель, уровни бутика).
-- [ ] 💡 Level cap 80 → 100 (как в ремейке оригинала).
+- [ ] 💡 Level cap 80 → 100 (как в ремейке).
 - [ ] 💡 Уникальные деревни-хабы на карте (свои фоны/торговцы) — нужны ассеты.
-- [ ] 💡 Достижения/милстоуны (первые 10 побед, 10-й этаж, 100-й этаж…) с
-      наградами gold/gems — инфраструктура дейликов переиспользуется.
-- [ ] ⚡ «Экипировать лучшее» — авто-подбор лучших предметов по слотам
-      (сравнение по суммарному вкладу в рейтинг).
+- [ ] 💡 Достижения/милстоуны (10 побед, 10-й этаж…) — инфраструктура дейликов переиспользуется.
+- [ ] ⚡ «Экипировать лучшее» — авто-подбор по слотам (сравнение по вкладу в рейтинг).
 
 **UI/UX**
-- [x] ⚡ Плавные hover-переходы для сити-карт (Арена/Магазин/Башня), слот-карты
-      и кнопок bottom bar — обобщить `_card_hover_anim` (Stage 159).
-      [→ Stage 174: сити-карты на fade-иконках при hover; слот/бар — по мере касания.]
-- [ ] ⚡ F10: визуализация активных ClickRect'ов (полупрозрачные рамки) —
-      наглядная отладка зон кликов (+ подсветка priority-rect'ов Stage 174).
+- [ ] ⚡ F10: визуализация активных ClickRect'ов (полупрозрачные рамки; + priority Stage 174).
 - [ ] ⚡ Пружинная микро-анимация открытия окон (scale 0.97→1.0 за 0.08с поверх fade).
-- [ ] 🔥 Единый движок окон: магазин Башни/дейлики/результаты боёв/слот — на
-      хелперы `_npc_window_*` (Stage 174) + data-driven секции (заголовок/тело/
-      награды из db) — весь UI окон в одном стиле, меньше дублирования рамок.
-- [ ] ⚡ Мигающий «!» на иконке «Т» трекера в нижнем баре, когда есть
-      доступный квест (сейчас бейдж показывает только число активных).
-- [ ] ⚡ Тост «Новый квест доступен — поговорите со Старейшиной» при входе на
-      локацию с готовым гивером (авто-подсказка вместо поиска «!» на карте).
-- [ ] ⚡ «Дорожка цепочки» q1→q4 в окне Старейшины: прогресс-полоса с
-      галочками пройденных шагов (данные уже в сейве).
-- [ ] ⚡ kill_mobs-подсказка в трекере: где водятся цели («Локация 1:
-      самураи») вторострокой цели, если локация цели ≠ текущая.
-- [ ] 💡 Тень (drop-shadow 1-2px) под плашками города и меткой Старейшины —
-      общий хелпер (отделить от фона при ярких артах).
-- [ ] 💡 SFX-слой: клики плашек/открытие NPC-окон/fade-иконок
-      (SOUND_ENABLED=False hook уже помечен в идеях синтеза).
-- [ ] ⚡ «Живая» позиция drag-призрака: читать `pygame.mouse.get_pos()` прямо
-      перед отрисовкой вместо кадрового `_mouse_pos` (нулев лаг при просадке FPS).
-- [ ] ⚡ Счётчики качества в меню «Продать» («Серые ×12»).
+- [ ] 🔥 Единый движок окон: магазин/дейлики/результаты/слот — на хелперах `_npc_window_*` + data-driven секции.
+- [ ] ⚡ Мигающий «!» на иконке «Т» трекера при доступном квесте (сейчас только число активных).
+- [ ] ⚡ Тост «Новый квест доступен — поговорите со Старейшиной» при входе на локацию с гивером.
+- [ ] ⚡ «Дорожка цепочки» q1→q4 в окне Старейшины (прогресс-полоса; данные в сейве).
+- [ ] ⚡ kill_mobs-подсказка в трекере: где водятся цели, если локация цели ≠ текущая.
+- [ ] 💡 Тень под плашками города и меткой Старейшины — общий хелпер.
+- [ ] ⚡ SFX-слой: клики плашек/открытие NPC-окон/fade-иконок.
+- [ ] ⚡ «Живая» позиция drag-призрака: pygame.mouse.get_pos() перед отрисовкой вместо кадрового _mouse_pos.
+- [ ] ⚡ Счётчики качества в меню «Продать» — применить `_su_text`-кэш (9 текст-рендеров на слот/кадр).
 - [ ] ⚡ Подтверждение продажи редких (Purple/Gold/Red).
-- [ ] ⚡ Кэш поверхностей подписей слотов (сейчас 9 текст-рендеров на слот/кадр).
 - [ ] ⚡ Предпросмотр прироста статов в синтезе: «Сила 10→12 (+2)» до нажатия.
-- [ ] ⚡ Гардероб: drag&drop между слотами + обратно в инвентарь драгом.
+- [ ] ⚡ Гардероб: drag&drop между слотами + обратно в инвентарь.
 - [ ] ⚡ Кнопка-иконка fullscreen в settings-модалке (не все помнят F11).
-- [ ] ⚡ Поиск/фильтр в инвентаре: строка поиска + фильтр по типу/редкости
-      над сеткой (полезно после роста лимита до 192 слотов).
-- [ ] ⚡ Модалка настроек: скорость боя по умолчанию, показ damage numbers,
-      fade-длительность, качество блюра.
+- [ ] ⚡ Поиск/фильтр в инвентаре: строка + фильтр по типу/редкости над сеткой.
+- [ ] ⚡ Модалка настроек: скорость боя по умолчанию, damage numbers, fade-длительность.
 - [ ] 💡 Тултип «Закрыть» при hover на квадратной Х-кнопке.
-- [ ] 💡 Магнитный snap окон при drag к краям экрана и к центру по X.
+- [ ] 💡 Магнитный snap окон при drag к краям экрана и центру по X.
 - [ ] 💡 Курсор-рука над кликабельными элементами (единый реестр hover-зон).
-- [ ] 💡 Fade-OUT закрытия модалок 0.15с (fade-in сделан в Stage 152).
-- [ ] 💡 Анимация успеха синтеза: вспышка + партиклы (система уже есть).
-- [ ] 💡 Бейдж уровня предмета в углу мини-слота («+N» на костюме — [x] Stage 166).
+- [ ] 💡 Fade-OUT закрытия модалок 0.15с (fade-in есть — Stage 152).
+- [ ] 💡 Анимация успеха синтеза: вспышка + партиклы (система есть).
 - [ ] 💡 Drop-shadow 1-2px под иконкой (отделить арт от rarity-фона).
 - [ ] 💡 Hover-зум иконки ×2 в мини-сетке (из кэша).
 - [ ] 💡 Пульс-свечение рамки Gold/Red предметов.
-- [ ] 💡 Сериализация анкеров позиций инвентаря в сейв (сейчас только runtime).
-- [ ] 💡 Persist слотов синтеза в сейв (Stage 164 — предметы возвращаются в
-      инвентарь при закрытии; опция «оставить раскладку» = хранить 3 item_id
-      в PlayerState.synth_slots).
-- [ ] 💡 Анимация сгорания катализаторов при провале синтеза (партиклы +
-      затемнение слота на 400мс) — понятная обратная связь «что сгорело».
-- [ ] 💡 История попыток синтеза (последние 5: шанс/результат) в углу окна.
-- [ ] 💡 Массовый синтез: «использовать все копии модели» — очередь попыток
-      с автоподачей катализаторов до первого успеха/ исчерпания.
-- [ ] 💡 Предмет-талисман «Камень удачи»: +N% к шансу синтеза (инвентарный
-      расходник, сгорает при попытке) — экономический сток для 92→2% шансов.
-- [~] 💡 Живой блюр ВСЕХ модалок (обобщение «живого блюра ЛН»): перезахват
-      сцены раз в 0.5с — анимации под блюром не заморожены. (Неактуально:
-      блюр-подложки удалены в Stage 165.)
-- [ ] 💡 Звук синтеза (SOUND_ENABLED=False, но заготовить hook).
+- [ ] 💡 Сериализация якорей инвентаря в сейв (сейчас только runtime).
+- [ ] 💡 Persist слотов синтеза в сейв (опция «оставить раскладку»).
+- [ ] 💡 Анимация сгорания катализаторов при провале синтеза (400мс).
+- [ ] 💡 История попыток синтеза (последние 5) в углу окна.
+- [ ] 💡 Массовый синтез: «использовать все копии модели» — очередь до успеха/исчерпания.
+- [ ] 💡 Предмет-талисман «Камень удачи»: +N% к шансу синтеза (сток для 92→2% шансов).
+- [ ] 💡 Звук синтеза (hook при SOUND_ENABLED=False).
 - [ ] 💡 Экспорт char sheet в PNG (share-фича).
-- [ ] ⚡ Синтез: дроп на ЛЮБУЮ точку окна — авто-раскладка в первый свободный
-      слот (main→cat1→cat2) без прицеливания в слот (Stage 161).
-- [ ] ⚡ Инвентарь: ПКМ-меню костюма — пункт «В синтез» (быстрый путь без drag).
-- [ ] 💡 Синтез: кнопка «Авто-подбор» — заполнить main+2 катализатора тем же
-      предметом одним кликом.
-- [ ] 💡 Анимация перелёта предмета в слот синтеза (150мс ease-out из инвентаря).
-- [ ] 💡 Кнопка «Сбросить раскладку окон» (очистить window_positions сейва).
-- [ ] 💡 Компакт-режим верхней панели (сворачивание 52→28 по хоткею).
-- [ ] ⚡ Индикатор непустых страниц на вкладках инвентаря (точка/полоска под
-      цифрой, если на странице есть предметы) — после роста до 10 вкладок
-      вслепую не листать.
-- [ ] ⚡ Гардероб: листание страниц колесом мыши над окном и клавишами ←/→
-      (сейчас только клик по плашкам пагинации).
-- [ ] ⚡ Persist пейджинга в сейв: последняя вкладка инвентаря и страница
-      гардероба (`window_positions`-стиль; окна помнит, пейджинг — нет).
-- [ ] 💡 Слот-машина: hover на аватарку в барабане — имя+уровень врага мелкой
-      подписью под ячейкой (тексты под названием/кнопкой удалены по запросу —
-      hover-подсказка их не возвращает).
-- [ ] 💡 Слот-машина: короткая золотая вспышка рамок всех барабанов при
-      выпадении 3 одинаковых лиц (джекпот-акцент перед «В бой!»).
-- [ ] ⚡ Quick battle: подсвечивать последний выбранный режим (×1/×10/Анимация)
-      при следующем открытии окна (запоминать в runtime-поле).
-- [ ] 💡 Гардероб: кнопка «Вынуть всё со страницы» рядом с пагинацией
-      (массовый возврат костюмов в инвентарь с гейтом места).
-- [~] 💡 Живой блюр диалога ЛН: перезахват сцены каждые 0.5с, пока открыт диалог
-      (анимации под блюром не «замораживаются»). (Неактуально: подложки удалены
-      в Stage 165.)
+- [ ] ⚡ Синтез: дроп на ЛЮБУЮ точку окна — авто-раскладка в первый свободный слот.
+- [ ] ⚡ Инвентарь: ПКМ-меню костюма — пункт «В синтез».
+- [ ] 💡 Синтез: кнопка «Авто-подбор» (main+2 ката одним кликом).
+- [ ] 💡 Анимация перелёта предмета в слот синтеза (150мс ease-out; обобщить Stage 212).
+- [ ] 💡 Кнопка «Сбросить раскладку окон» (очистить window_positions).
+- [ ] 💡 Компакт-режим верхней панели (52→28 по хоткею).
+- [ ] ⚡ Индикатор непустых страниц на вкладках инвентаря (точка под цифрой).
+- [ ] ⚡ Гардероб: листание страниц колесом мыши и клавишами ←/→.
+- [ ] ⚡ Persist пейджинга в сейв: последняя вкладка инвентаря и страница гардероба.
+- [ ] 💡 Слот-машина: hover на аватарке в барабане — имя+уровень мелкой подписью.
+- [ ] 💡 Слот-машина: золотая вспышка рамок при 3 одинаковых лицах.
+- [ ] ⚡ Quick battle: подсвечивать последний выбранный режим (×1/×10/Анимация).
+- [ ] 💡 Гардероб: кнопка «Вынуть всё со страницы» (массовый возврат с гейтом места).
 
 **Карта мира**
-- [ ] ⚡ Клик по зоне текущей локации: подсветить/пульснуть метку вместо бездействия.
-- [ ] ⚡ Зум колесом мыши (WORLDMAP_SCALE 1.0→1.4→1.8) с сохранением центра.
+- [ ] ⚡ Клик по зоне текущей локации: подсветить/пульснуть метку.
+- [ ] ⚡ Зум колесом (WORLDMAP_SCALE 1.0→1.4→1.8) с сохранением центра.
 - [ ] ⚡ Метка игрока на конкретной зоне внутри LOC1-4 (player_zone_id в сейве).
 - [ ] 💡 Шапка панели карты: «Ур. 12 · открыто 14/35 зон».
-- [ ] 💡 Кнопка «Лас Ночес» на карте (сейчас Башня только через карточку CITY).
+- [ ] 💡 Кнопка «Лас Ночес» на карте (Башня сейчас только через карточку CITY).
 - [ ] 💡 Стрелка-подсказка к ближайшей открывающейся зоне (unlock == level+1).
 - [ ] 💡 Параллакс-дрожание фона при hover зон.
 
 **Техдолг и инфраструктура**
-- [ ] ⚡ Headless-аудит зон кликов ВСЕХ экранов: расширить diag_click_offset.py —
-      каждый ClickRect ловит визуальный центр; кадры 1-3, оба масштаба.
-- [ ] ⚡ Восстановить пропавшие стейдж-тесты драга (145-148) как единый
-      scripts/drag_checklist.py.
-- [ ] 💡 Почистить scripts/: headless_test.py (Stage 9, не запускается),
-      stage22_verify.py, create_archive.sh.
+- [ ] ⚡ Headless-аудит зон кликов ВСЕХ экранов (расширить diag_click_offset: каждый ClickRect → визуальный центр; кадры 1-3, оба масштаба).
+- [ ] ⚡ Восстановить стейдж-тесты драга (145-148) как единый scripts/drag_checklist.py.
+- [ ] 💡 Почистить scripts/: headless_test.py, stage22_verify.py, create_archive.sh.
 - [ ] 💡 Комплектность ассетов карты: 35 zone_id × 3 состояния vs файлы на диске.
-- [x] 💡 Централизовать магические числа — Stage 170 (A3): 8 из 9 перенесены
-      (см. таблицу «Магические числа»; осталась база max_atk ×1.5).
-- [x] 💡 Унифицировать crit-системы — legacy calc_crit_chance/calc_crit_multiplier
-      УДАЛЕНЫ ещё в Stage 170 (проверено аудитом кода: 0 упоминаний, только
-      комментарий config.py:1437); rating_to_percent — мёртвый (см. блок «Аудит кода»).
-- [x] 💡 Centralize slot_name_map + stat_label_map — УЖЕ в config
-      (SLOT_NAME_RU / STAT_LABEL_RU, 5 UI-файлов импортируют; проверено аудитом).
 
-**Аудит кода — дубли и мёртвый код (анализ AST-сканерами, пост-Stage 203)**
-- [x] 🔥 Мёртвый код ~440 строк — УДАЛЕН в Stage 204 (полный список — в блоке
-      версии v202.2 и таймлайне; повторный прогон сканера: 0 новых кандидатов,
-      кроме каскадных TEMP_FILE_PATH/_FS_MAP_LABEL — тоже удалены).
-- [x] ⚡ effects.py: базовые классы — Stage 204: LoopingOverlay ← EffectOverlay
-      ← IceBlockEffect; OneShotEffect ← CastEffect/ProjectileEffect
-      (бывший ratio 1.00 в update устранён).
-- [x] ⚡ Сброс боевого состояния 6 мест — Stage 204: все через
-      _reset_battle_common_state(countdown_active=); хелпер расширен до
-      супермножества (+endgame-поля, _skills_modal_open).
-- [x] ⚡ Фабрика вражеского Fighter+IdleAnimator — Stage 204:
-      _spawn_enemy_fighter; попутно фикс F9 (папка "samurai_idle" не
-      существовала, терялся role_id).
-- [x] 💡 default_icons dict ×2 — Stage 204: DEFAULT_GEAR_ICONS +
-      DEFAULT_TYPE_TO_SLOT в item_db.
-- [x] 💡 dirname×4-хак — Stage 204: render_inventory ×3 (794/847/920) →
-      ASSETS_DIR (в quick_battle ещё с Stage 203).
-- [ ] 💡 SynthRendererMixin._synth_pick_item ≈ _handle_synth_right_click (0.80) —
-      симметричные взять/вернуть, общее ядро
-- [ ] 💡 damage.py: блок hit-roll + apply_damage_pipeline + freeze-амплификация
-      дублирован в compute_attack/compute_skill_damage (отличаются лог-тексты)
-- [ ] 💡 render_world_boss.py — shadow-эллипс ×2 (мелочь, same-file)
-- [ ] 💡 test_battle._update_test_battle ≈ combat_replay._update_battle (0.83,
-      47/52 строк) — зеркальный update-цикл; после Stage 204 зеркалится только
-      сам update (входы/выходы уже на общем хелпере); при касании вынести базу
-- [x] 💡 Тултип предмета: 3 копии layout-логики — уточнено аудитом: структуры
-      РАЗОШЛИСЬ (inventory 1008/shop 239/quick_battle 211+245, ratio < 0.70),
-      унификация НЕ срочна, оставить по мере касания
+**Аудит кода — остаток (пост-Stage 204)**
+- [ ] 💡 SynthRendererMixin._synth_pick_item ≈ _handle_synth_right_click (0.80) — симметричные взять/вернуть, общее ядро.
+- [ ] 💡 damage.py: hit-roll + apply_damage_pipeline + freeze-амплификация дублированы в compute_attack/compute_skill_damage.
+- [ ] 💡 render_world_boss.py: shadow-эллипс ×2 (same-file).
+- [ ] 💡 test_battle._update_test_battle ≈ combat_replay._update_battle (0.83) — зеркальный update-цикл; при касании вынести базу.
 
 **Идеи из Stage 204 (волна чистки)**
-- [ ] ⚡ _bar_ghosts: защитная инициализация в __init__ (сейчас lazy в
-      update-пути combat_replay: render без update роняет property — поймано
-      headless-смоуком Stage 204; в живом цикле порядок update→render всегда OK).
-- [ ] ⚡ scripts/diag_full_flow.py — headless-прогон 200 кадров
-      MAP→BATTLE→endgame→MAP с assert'ами по состоянию: страховка после любых
-      рефакторингов входа/выхода боя (сегодняшние смоуки делались разово).
-- [ ] 💡 ProjectileEffect: CAST_HOLD_FRAMES → параметр start() — разные снаряды
-      с разной фазой удержания у кастера.
-- [ ] 💡 config: сгруппировать CAST_FIREBALL_FPS/W/H/Y_OFFSET в dict
-      CAST_FIREBALL — готовность к новым снарядам без россыпи констант.
-- [ ] 💡 HUD_THEME → подсекция UI_THEME (единый словарь тем UI+HUD, два словаря
-      с пересекающимися значениями).
-- [ ] 💡 layout.tsx: <title> «Pockie RPG» вместо дефолтного скаффолдного
-      (полировка вкладки браузера витрины).
-- [ ] 💡 PlayerState: сгруппировать daily_quest_progress/claimed/date в
-      dataclass DailyQuestState — первый безопасный шаг к расколу [5.3].
-- [x] 💡 Cache fonts в render_map.py — ПЕРЕКРЫТО Stage 168: `_su_text` кэширует
-      не только шрифты, но и отрисованный текст (LRU 2048) — выгоднее.
-- [x] ⚡ Кэш поверхностей подписей слотов (сейчас 9 текст-рендеров на слот/кадр)
-      — механизм готов (`_su_text`), применить к подписям слотов инвентаря.
+- [ ] ⚡ _bar_ghosts: защитная инициализация в __init__ (render без update роняет property — поймано смоуком; в живом цикле порядок OK).
+- [ ] ⚡ scripts/diag_full_flow.py — headless 200 кадров MAP→BATTLE→endgame→MAP с assert'ами (страховка после рефакторингов входа/выхода).
+- [ ] 💡 ProjectileEffect: CAST_HOLD_FRAMES → параметр start().
+- [ ] 💡 config: сгруппировать CAST_FIREBALL_* в dict CAST_FIREBALL.
+- [ ] 💡 HUD_THEME → подсекция UI_THEME (единый словарь тем).
+- [ ] 💡 layout.tsx: <title> «Pockie RPG» вместо скаффолдного.
+- [ ] 💡 PlayerState: daily_quest_progress/claimed/date → dataclass DailyQuestState (первый шаг к расколу [5.3]).
 - [ ] 💡 Burn → отдельный BURN_DAMAGE event.
 - [ ] 💡 effect_folder в SkillDef — вынести UI concern из engine data.
 
 ### [~] ОТКЛОНЕНО / ОПРОВЕРГНУТО
-- [~] Выровнять PIERCE_STEP к /16 — опровергнуто данными оригинала (75 лвл):
-      реальная формула — гипербола pierce/(pierce+1354) (реализована в Stage 137).
+- [~] Выровнять PIERCE_STEP к /16 — данными оригинала: гипербола pierce/(pierce+1354) (Stage 137).
 - [~] Авто-продажа при полном инвентаре в магазине — блокировать покупку, игрок решает сам.
+- [~] Блюр-подложки модалок (в т.ч. «живой блюр») — реализованы (Stage 162), удалены по запросу (Stage 165, «резкая вспышка»); НЕ возвращать.
 
 ---
 
 ## TODO / Roadmap (следующие шаги)
 
-> **МУЛЬТИПЛЕЕР ИСКЛЮЧЁН** (решение пользователя) — сетевые пункты из
-> роадмапа аудита удалены; архитектура сознательно single-user.
+> **МУЛЬТИПЛЕЕР ИСКЛЮЧЁН** (решение пользователя) — архитектура сознательно
+> single-user. Сетевые пункты из роадмапа удалены.
 
-**Аудит, раздел 4 (качество кода) — статус после Stage 169:**
-- **[4.4 Мёртвый код] — ЗАВЕРШЕНО**: ITEM_BALANCE_TABLE/ITEM_SECONDARY_RANGES/
-  DROP_RATE_TABLE/roll_rarity, дубли капов попадания, DEFENSE_CONSTANT,
-  get_generated_weapon, legacy-алиасы CharacterStats, мёртвые чтения gear —
-  удалены; докстринг Role синхронизирован с кодом; гем-бонус читает БД.
-- **[4.3 Дубли] — ЧАСТИЧНО**: сделано — генератор предметов (1 функция вместо
-  7), _fmt_hp (1 реализация), X-кнопка (осталась 1 реализация в render_map),
-  monkey-patch char sheet, state == 2 → GameState.BATTLE. ОСТАЛОСЬ:
-  тултип предмета — 3 копии layout-логики (inventory/shop/quick_battle);
-  сброс боевого состояния — 4 места (_enter_battle/_enter_tower_battle/
-  gauntlet/test_battle.py) при существующем _reset_battle_common_state
-  (использует только gauntlet); ~940 сырых RGB-троек в UI ((234,179,8)
-  повторяется сотнями раз при существующем RARITY_RGB).
-
-**Остаток роадмапа аудита (Stage 168, раздел 5):**
-1. **[5.3]** `game/state.py` (2199 строк) — PlayerState = данные + игровая
-   логика + ростовые таблицы в одном классе: вынести level-up/лут/квесты в
-   `game/progression.py`, оставить PlayerState чистым состоянием.
-2. **[5.4]** `ui/pygame_ui.py` (3710 строк) — вынести battle-flow
-   (_enter_battle/_exit_battle/endgame/гонтлет) в `ui/battle_flow.py` миксин;
-   ESC-каскад → таблица обработчиков.
+**Остаток роадмапа аудита (раздел 5):**
+1. **[5.3]** `game/state.py` (~2485 строк) — вынести level-up/лут/квесты в
+   `game/progression.py`, PlayerState = чистое состояние.
+2. **[5.4]** `ui/pygame_ui.py` (~3760 строк) — battle-flow (_enter/_exit/
+   endgame/гонтлет) в `ui/battle_flow.py` миксин; ESC-каскад → таблица.
 3. **[5.5]** Текстовый кэш `_su_text` на оставшиеся модалки (магазин/кузница/
-   тултипы/инвентарь — подписи слотов), hover-глоу в кэш по (size, t).
-4. **[5.6]** Фичи из реестра идей (история синтеза, массовый синтез,
-   камень удачи и т.д.).
-5. **[5.7]** ~~Мультиплеер~~ — ИСКЛЮЧЕНО пользователем (не разрабатываем).
+   тултипы/подписи инвентаря); hover-глоу в кэш по (size, t).
+4. **[5.6]** Фичи из реестра (история синтеза, массовый синтез, камень удачи…).
+5. **[4.3 Дубли]** — остаток: тултип предмета 3 копии (по мере касания),
+   ~940 сырых RGB → UI_THEME, sell_base×10 в спецификацию генератора.
+   (Сброс боевого состояния и фабрика врага — ГОТОВО Stage 204.)
 
 **Прежние шаги:**
-1. **Миграция Hi-DPI**: char sheet/навыки (самое «мыльное» место) → мелкие
-   модалки пакетом → мировая карта (осторожно: маски) → бой (последним).
-2. ~~Централизовать магические числа~~ — ГОТОВО Stage 170 (осталась база
-   max_atk ×1.5 — внутрь Stage 107-блока при следующем касании).
-3. ~~tower_conqueror — реализовать или удалить ссылку~~ — ГОТОВО Stage 170 (A4).
-4. **MOB_DROP_TABLES Loc2-4** — on hold до фокуса на них.
-5. **UI_DENSITY** — пресеты плотности окон (анализ PROJECT_PROMPT §8.7).
-6. Баланс слот-машины (кулдаун/пул/спин/бонус — placeholders).
-7. **Блоки C–I из промта Stage 170+** (B — ГОТОВО Stage 171): C (Modal
-   Stack) → D (раскол PlayerState) → E (battle_flow + update/render) →
-   F (чистка config) → (G UI_THEME фоном) → H (боевка/UI) → I (инфра).
-8. ~~Восстановить потерянные scripts/~~ — ГОТОВО (diag_window_drag /
-   diag_e2e_clicks / diag_battle_bg / diag_drag_ghost присутствуют и проходят;
-   diag_stage170/171/172/173 + hidpi_smoke + diag_click_offset — актуальные).
+1. **Миграция Hi-DPI**: char sheet/навыки → мелкие модалки → мировая карта
+   (осторожно: маски) → бой (последним).
+2. **UI_DENSITY** — пресеты плотности окон (PROJECT_PROMPT §8.7).
+3. Баланс слот-машины (кулдаун/пул/спин/бонус — placeholders).
+4. Блоки C–I (B ГОТОВО Stage 171): C (Modal Stack) → D (раскол PlayerState)
+   → E (battle_flow) → F (чистка config) → G (UI_THEME фоном) → H (боевка/UI)
+   → I (инфра).
+5. **MOB_DROP_TABLES Loc2-4** — on hold до фокуса на них.
+
+---
 
 ## Чек-лист перед архивом/коммитом
 
 - [ ] `python -m py_compile` на всех изменённых файлах.
 - [ ] `ruff check src/` — чисто.
-- [ ] Headless-диагностики зелёные (diag_click_offset / diag_window_drag /
-      diag_e2e_clicks / diag_battle_bg / diag_drag_ghost / hidpi_smoke ×3).
+- [ ] Headless-диагностики зелёные (diag_stage212 / diag_stage211 /
+      diag_click_offset / diag_window_drag / diag_e2e_clicks /
+      diag_battle_bg / diag_drag_ghost / diag_replay_flow / hidpi_smoke).
 - [ ] `tail dev.log` — нет traceback; витрина в браузере рендерится.
 - [ ] MEMORY.md — версия + строка таймлайна + идеи.
 - [ ] PROJECT_PROMPT.md — если менялась архитектура/формулы.

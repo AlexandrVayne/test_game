@@ -94,12 +94,13 @@ STARTER_SUITS: dict[str, Suit] = {
         motion_folder="ichigo/idle",
         avatar_filename="userface_0_1_role.gif",
     ),
-    # Stage 206 — костюм cloth14 (пользователь: это Ренджи АБАРАИ, не Сакура).
+    # Stage 206 — костюм cloth14 (пользователь: это Рендзи АБАРАИ, не Сакура;
+    # Stage 211 — написание «Рендзи» по запросу пользователя).
     # Надетый костюм suit_cloth14 переключает аватар/имя/позу инвентаря на
     # эту запись (resolve_player_suit); анимации боя — через motion_skin.
     "i290014": Suit(
         suit_id="i290014",
-        name="Ренджи Абараи",
+        name="Рендзи Абараи",
         role_id=1,
         motion_folder="cloth14/idle",
         avatar_filename="userface_0_14_role.gif",

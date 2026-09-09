@@ -126,7 +126,7 @@ python -m pockie_rpg.main
 
 ```
 src/pockie_rpg/
-├── config.py                    (2385)  UI/окна/данные-константы + UI_THEME (Stage 203 — семантические цвета UI, постепенная замена сырых RGB) + PLAYER_MOTION_SKINS (Stage 205 — скины анимаций игрока) + COSTUME_QUALITY_* (Stage 209 — 4 тира качества костюмов) + TowerDB +
+├── config.py                    (2397)  GAME_VERSION (Stage 210/211/212 — версия сборки v207.0, показывается в F9-оверлее) + INV_FLIGHT_MS=120 (Stage 212 — полёт иконки после дропа) + UI/окна/данные-константы + UI_THEME (Stage 203 — семантические цвета UI, постепенная замена сырых RGB) + PLAYER_MOTION_SKINS (Stage 205 — скины анимаций игрока) + COSTUME_QUALITY_* (Stage 209 — 4 тира качества костюмов) + TowerDB +
 │                                       прогрессия/экономика (Stage 170: LEVEL_XP_CURVE,
 │                                       ATK_TIME_*, GEM_*, TEST_START_*); боевая математика
 │                                       ПЕРЕЕХАЛА в combat/formulas.py — в конце
@@ -135,7 +135,7 @@ src/pockie_rpg/
 │
 ├── data/                                  Layer A — frozen dataclasses + datasets
 │   ├── models.py                 (249)  Role, EnemyDef, Suit (+pose_filename, Stage 206), CharacterStats
-│   ├── roles_db.py               (213)  5 ролей (Ichigo + 4 самурая + Flower) + STARTER_SUITS (i290001 Ичиго, i290014 Ренджи Абараи) + resolve_player_suit + ENEMY_MOBS
+│   ├── roles_db.py               (213)  5 ролей (Ichigo + 4 самурая + Flower) + STARTER_SUITS (i290001 Ичиго, i290014 Рендзи Абараи) + resolve_player_suit + ENEMY_MOBS
 │   ├── enemy_db.py               (206)  13 врагов (samurai_1..12, flower_1)
 │   ├── item_db.py               (1070)  EQUIPMENT_DB (43), OUTFITS_DB (5, поле quality — Stage 209), GEMS_DB (5), generate_item() + _GENERATOR_SPECS (Stage 169 — 1 генератор вместо 7 копипаст-функций); Stage 204: DEFAULT_GEAR_ICONS/DEFAULT_TYPE_TO_SLOT; Stage 205: suit_cloth14 с motion_skin (костюм меняет анимации игрока); Stage 209: официальные статы Абарая 26/6/16 (+1.3/+0.3/+0.8), BMV 10/21/12
 │   ├── tower_db.py               (352)  100 этажей + 10 боссов + TowerReward/Floor/Boss
@@ -175,7 +175,7 @@ src/pockie_rpg/
     ├── render_worldmap.py       (~560)  WorldMapRendererMixin — Stage 135: мировая карта (5 слоёв, хиттест, тултип)
     ├── scaling.py               (~300)  ScalableRendererMixin — Stage 152/153: _su/_su_font/_su_rect/_su_icon_size/_su_scaled/_su_image/_su_overlay + fade модалок; Stage 168 (аудит 5.2): _su_text (LRU) + _static_surface; Stage 203: _su_image(fit=True) — вписывание с сохранением пропорций (неквадратные иконки) + _draw_close_x_square (общий визуал Х-кнопок)
     ├── render_map.py            (~865)  MapRendererMixin — MAP НАТИВНО (Hi-DPI, Stage 153) + bottom bar + enemy cards (клик по ВСЕЙ карточке — Stage 167); Stage 203: HP/MP/EXP через _render_bar(simple=True), баф-тултип через ui/tooltip.py (prefer_below), _render_map_bar удалена
-    ├── render_inventory.py     (~1965)  InventoryRendererMixin — инвентарь НАТИВНО (Hi-DPI, Stage 151), drag&drop; сетка 12×8, окно 491, кнопки 118, 10 вкладок (Stage 167; ITEMS_PER_PAGE=128 не урезать — визуальный гейт _can_visually_fit); заглушки (Stage 163); якоря-списки (Stage 164); тултип БЕЗ «Продажа»/«[RARITY]» (Stage 177)
+    ├── render_inventory.py     (~2205)  InventoryRendererMixin — инвентарь НАТИВНО (Hi-DPI, Stage 151), drag&drop; сетка 12×8, окно 491, кнопки 118, 10 вкладок (Stage 167; ITEMS_PER_PAGE=128 не урезать — визуальный гейт _can_visually_fit); якоря ПОСТРАНИЧНЫЕ с валидацией по кадру (Stage 211); полёт иконки после дропа ~120мс (suppress целевой ячейки) + пунктир «домашней» клетки при drag (Stage 212); заглушки (Stage 163); тултип БЕЗ «Продажа»/«[RARITY]» (Stage 177), костюм — БЕЗ подписи тира, имя без кавычек (Stage 211)
     ├── render_synth.py           (~842)  Synth+WardrobeRendererMixin — синтез костюмов (400×248, 4 слота в ряд с ячейками 2 кол. × 3 ряда — Stage 167; слоты хранят item_id — физический перенос, возврат ПКМ/кликом; результат +N+1 остаётся в слоте результата, «(костюм +N)»/шанс под ним; тултипы слотов — Stage 166) + гардероб (480×484; 25 слотов = 5 страниц × 5 с пагинацией снизу, глобальный индекс страница×5+i — Stage 167); без затемнения (Stage 162)
     ├── render_forge.py          (922)  ForgeRendererMixin — Кузница НАТИВНО (Hi-DPI, Stage 152): заточка/камни/синтез
     ├── render_shop.py            (337)  ShopRendererMixin — магазин (тултип БЕЗ «Продажа» — Stage 177)
@@ -751,10 +751,17 @@ Stage 204 — иерархия вместо копипасты (вид и API н
   нужно, полный инвентарь не блокирует синтез); забрать — ЛКМ/ПКМ по слоту
   результата (`_synth_collect_result`); гейт уровня игрока в synth_preview
   удалён — носить по требованию проверяет equip_gear_item.
-- **Якорная память инвентаря (Stage 148/164)**: `dict[item_id → список
-  позиций]`, хелперы `_inv_anchor_*` (единственные точки изменения);
-  drag обновляет позицию только перетащенной копии (по текущей клетке
-  layout'а); дубликаты (одинаковый item_id) не пересортировываются.
+- **Якорная память инвентаря (Stage 148/164/211)**: ПОСТРАНИЧНАЯ
+  `dict[item_id][page → список (col,row)]`, хелперы `_inv_anchor_*`
+  (единственные точки изменения). ИНВАРИАНТ АНТИ-ТЕЛЕПОРТА (Stage 211):
+  после ЛЮБОГО drag список = ТОЧНЫЕ клетки копий (`_inv_anchor_rebuild`);
+  pass-1 раскладки валидирует якоря по снимку прошлого кадра
+  (`_inv_prev_cells`) — «протухшие» свободные позиции вырезаются ДО
+  раскладки (иначе предмет-сосед крал клетку свежего дропа — репорт
+  «предмет сам перемещается в другие ячейки»). Свежие дропы помечаются
+  `_inv_anchor_fresh` (не валидируются прошлым кадром). Чистки: equip/
+  продажа/гардероб/уход со страницы забывают якоря страницы; дроп у края
+  сетки КЛЭМПИТСЯ (не отменяется); дубликаты не пересортировываются.
 
 ### 8.7 Как уменьшать окна без потери качества (анализ Stage 160)
 

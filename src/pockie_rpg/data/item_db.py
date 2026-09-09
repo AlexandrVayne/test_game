@@ -446,6 +446,8 @@ EQUIPMENT_DB: dict[str, dict] = {
         "item_level": 1,
         "stats": {},
         "icon_filename": "suit_ichigo.png",
+        # Stage 209 — качество костюма (фон/рамка/имя в инвентаре).
+        "quality": "Grey",
         # Stage 187 — продажа костюмов разрешена (микро-меню; 50 зол).
         # В массовую продажу костюмы по-прежнему НЕ попадают.
         "sell_price": 50,
@@ -453,13 +455,16 @@ EQUIPMENT_DB: dict[str, dict] = {
     # Stage 205/206 — костюм cloth14: первый костюм СО СВОИМИ анимациями боя
     # (motion_skin → config.PLAYER_MOTION_SKINS["cloth14"]). Иконка —
     # upload/icon_avatar_cloth14.s110.png; аватар userface_0_14_role.gif.
-    # Пользователь: персонаж — Ренджи АБАРАИ (не Сакура).
+    # Пользователь: персонаж — Рендзи АБАРАИ (не Сакура; Stage 211 —
+    # написание «Рендзи»).
     "suit_cloth14": {
-        "name": "Костюм «Ренджи Абараи»",
+        "name": "Костюм «Рендзи Абараи»",
         "slot": "outfit",
         "item_level": 1,
         "stats": {},
         "icon_filename": "suit_cloth14.png",
+        # Stage 209 — качество костюма (фон/рамка/имя в инвентаре).
+        "quality": "Grey",
         "sell_price": 50,
     },
 }
@@ -520,6 +525,8 @@ OUTFITS_DB: dict[str, dict] = {
         "name": "Костюм Ичиго (Куросаки)",
         "type": "agility",
         "archetype": "agility_dps",
+        # Stage 209 — качество костюма (COSTUME_QUALITY_*).
+        "quality": "Grey",
         "base_stats": {"strength": 10, "agility": 15, "stamina": 8},
         # Stage 103 — BMV-Цена (cost) per stat.
         "bmv_price": {"strength": 30, "agility": 10, "stamina": 20},
@@ -540,6 +547,7 @@ OUTFITS_DB: dict[str, dict] = {
         "name": "Костюм Самурая-танка",
         "type": "strength",
         "archetype": "strength_tank",
+        "quality": "Blue",
         "base_stats": {"strength": 15, "agility": 5, "stamina": 15},
         "bmv_price": {"strength": 15, "agility": 30, "stamina": 15},
         "growth": {
@@ -555,6 +563,7 @@ OUTFITS_DB: dict[str, dict] = {
         "name": "Костюм Ниндзя (Уворот)",
         "type": "agility",
         "archetype": "agility_evasion",
+        "quality": "Purple",
         "base_stats": {"strength": 5, "agility": 20, "stamina": 8},
         "bmv_price": {"strength": 40, "agility": 5, "stamina": 30},
         "growth": {
@@ -570,6 +579,7 @@ OUTFITS_DB: dict[str, dict] = {
         "name": "Костюм Огра (Громила)",
         "type": "stamina",
         "archetype": "stamina_bruiser",
+        "quality": "Orange",
         "base_stats": {"strength": 12, "agility": 5, "stamina": 18},
         "bmv_price": {"strength": 20, "agility": 40, "stamina": 10},
         "growth": {
@@ -581,24 +591,26 @@ OUTFITS_DB: dict[str, dict] = {
         "growth_bonus": {"strength": 0.8, "agility": 0.3, "stamina": 1.7},
         "icon_filename": "suit_ichigo.png",
     },
-    # Stage 205/206 — cloth14 («Ренджи Абараи»): СИЛОВОЙ костюм (Ренджи —
-    # боец ближнего боя с Забиммару) со своим скином анимаций боя.
-    # Статы: сила-ориентированные — заметно меняют билд при надевании
-    # (правило пользователя: «все статы привязаны к своему костюму»).
+    # Stage 209 — cloth14 («Ренджи Абараи») — официальные статы костюма
+    # от пользователя: Сила 26 (+1.3), Ловкость 6 (+0.3), Выносливость 16
+    # (+0.8); BMV-пороги 10 силы / 21 ловкости / 12 выносливости.
+    # Качество: СЕРЫЙ (тир качества костюмов — Stage 209).
     "suit_cloth14": {
-        "name": "Костюм «Ренджи Абараи»",
+        "name": "Костюм «Рендзи Абараи»",
         "type": "strength",
         "archetype": "strength_dps",
-        "base_stats": {"strength": 15, "agility": 8, "stamina": 12},
-        "bmv_price": {"strength": 12, "agility": 30, "stamina": 20},
+        "base_stats": {"strength": 26, "agility": 6, "stamina": 16},
+        "bmv_price": {"strength": 10, "agility": 21, "stamina": 12},
         "growth": {
-            "strength": {"current": 1.4, "max": 1.8},
-            "agility":  {"current": 0.4, "max": 0.6},
-            "stamina":  {"current": 0.9, "max": 1.3},
+            "strength": {"current": 1.3, "max": 1.7},
+            "agility":  {"current": 0.3, "max": 0.5},
+            "stamina":  {"current": 0.8, "max": 1.1},
         },
-        "bmv": {"strength": 12, "agility": 30, "stamina": 20},
-        "growth_bonus": {"strength": 1.4, "agility": 0.4, "stamina": 0.9},
+        "bmv": {"strength": 10, "agility": 21, "stamina": 12},
+        "growth_bonus": {"strength": 1.3, "agility": 0.3, "stamina": 0.8},
         "icon_filename": "suit_cloth14.png",
+        # Stage 209 — качество костюма (COSTUME_QUALITY_*): фон/рамка/имя.
+        "quality": "Grey",
         # Stage 205 — ключ игрока-скина: надетый костюм меняет анимации боя.
         "motion_skin": "cloth14",
         # Stage 206 — связь с Suit (аватар/имя/поза инвентаря).

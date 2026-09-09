@@ -25,6 +25,7 @@ from pockie_rpg.config import (
     COUNTDOWN_FONT_SIZE,
     FPS,
     FRAMELESS_ENABLED,
+    GAME_VERSION,
     LOG_BAR_H,
     MAX_LEVEL,
     MOB_TO_MOTION,
@@ -500,6 +501,9 @@ class PygameUI(
         self._debug_frame_ms: float = 0.0
         # Stage 208 — фейсинг-оверлей (тумблер F9): folder+flip аниматоров.
         self._facing_overlay: bool = False
+        # Stage 210 — экранная плашка после F9: полный путь репорта/ошибка
+        # (текст, остаток секунд). Видна независимо от тумблера оверлея.
+        self._facing_report_note: tuple[str, float] | None = None
         # Stage 138 — SYNTH (синтез костюмов) + WARDROBE (гардероб) — ПРАВИЛО 9.
         # Stage 164 — слоты хранят item_id (предмет физически вне инвентаря).
         # Stage 166 — _synth_result_item: результат синтеза (+N+1) ОСТАЁТСЯ
@@ -702,7 +706,10 @@ class PygameUI(
                     elif event.key == pygame.K_F9:
                         # Stage 208 — фейсинг-оверлей: folder+flip аниматоров
                         # (живая отладка направления спрайта в бою).
+                        # Stage 209 — копипаст-репорт: каждое нажатие F9
+                        # пишет строки оверлея в data/facing_report.txt.
                         self._facing_overlay = not self._facing_overlay
+                        self._save_facing_report()
                     elif event.key == pygame.K_F10:
                         # Stage 152 — отладочный оверлей Hi-DPI (масштабы, кэши).
                         self._debug_overlay = not self._debug_overlay
@@ -1092,6 +1099,16 @@ class PygameUI(
             # рядом с F10-панелью (в левом верхнем углу). ClickRect'ов нет.
             if self._facing_overlay:
                 self._render_facing_overlay()
+            # Stage 210 — плашка пути репорта (нажатие F9), тик + рендер.
+            if self._facing_report_note is not None:
+                self._facing_report_note = (
+                    self._facing_report_note[0],
+                    self._facing_report_note[1] - dt,
+                )
+                if self._facing_report_note[1] <= 0.0:
+                    self._facing_report_note = None
+                else:
+                    self._render_facing_report_note()
             pygame.display.flip()
 
     def _render_debug_overlay(self) -> None:
@@ -1181,45 +1198,100 @@ class PygameUI(
             target.blit(s, (x + pad, cy))
             cy += s.get_height() + 2
 
+    def _facing_expected(self, is_player: bool) -> tuple[str, str]:
+        """Stage 209 — ожидаемый фейсинг бойца («RIGHT»/«LEFT») + причина.
+
+        Инвариант направления (RULES П13): все фазы «лицом к врагу» —
+        P смотрит RIGHT, E смотрит LEFT; RUN_BACK (бежит домой) — ЛИЦОМ
+        ПО НАПРАВЛЕНИЮ движения: P → LEFT, E → RIGHT (пользователь:
+        «должен смотреть в сторону куда бежит»; в v204.1 инверсия была
+        верна, Stage 208 ошибочно отменил её для скинов).
+        """
+        seq = getattr(self, "_active_attack_seq", None)
+        if (seq is not None and seq.active and seq.is_player == is_player
+                and seq.phase == "RUN_BACK"):
+            return ("LEFT" if is_player else "RIGHT"), "бежит домой"
+        return ("RIGHT" if is_player else "LEFT"), "лицом к врагу"
+
+    def _facing_actual(self, anim) -> str:
+        """Stage 209 — фактическое направление спрайта аниматора.
+
+        Считается из INTRINSIC_FACING папки (единый источник правды,
+        alpha-эвристика для скинов врёт на причёсках/хвостах) и текущего
+        флипа: flip разворачивает intrinsic на противоположный.
+        """
+        from pockie_rpg.config import SpriteFacing
+
+        intrinsic = self.asset_manager.detect_sprite_facing(
+            pygame.Surface((1, 1)), anim.folder)
+        faces_right = (intrinsic == SpriteFacing.RIGHT) != bool(anim.flip)
+        return "RIGHT" if faces_right else "LEFT"
+
+    def _facing_overlay_rows(
+        self,
+    ) -> list[list[tuple[str, tuple[int, int, int]]]]:
+        """Stage 208/209 — строки F9-фейсинг-оверлея (рендер + репорт).
+
+        Строка на аниматор: папка | flip | СМОТРИТ X (факт) | ожид. Y —
+        факт и ожидание рядом, несоответствие целиком КРАСНЫМ (сверки
+        в голове не нужно); в конце экшен и кадр N/M. Ниже — фаза
+        активной attack-последовательности.
+        """
+        green = (74, 222, 128)
+        red = (248, 113, 113)
+        white = (232, 232, 236)
+        grey = (161, 161, 170)
+        amber = (234, 179, 8)
+        rows: list[list[tuple[str, tuple[int, int, int]]]] = []
+
+        rows.append([(
+            f"F9 FACING {GAME_VERSION}  state={self.state.name}",
+            amber,
+        )])
+
+        anim_p = getattr(self, "_player_animator", None)
+        anim_e = getattr(self, "_enemy_animator", None)
+        for tag, anim in (("P", anim_p), ("E", anim_e)):
+            if anim is None:
+                rows.append([(f"{tag}: — (аниматор не создан)", grey)])
+                continue
+            expected, why = self._facing_expected(tag == "P")
+            actual = self._facing_actual(anim)
+            ok = actual == expected
+            match_rgb = green if ok else red
+            count = self.asset_manager.get_motion_frame_count(anim.folder)
+            mark = "✓" if ok else "✗"
+            rows.append([
+                (f"{tag}: {anim.folder} | flip=", white),
+                ("True" if anim.flip else "False", white),
+                (f" | смотрит {actual} {mark}", match_rgb),
+                (f" | ожид. {expected} ({why})", match_rgb if not ok else grey),
+                (f" | act={anim.action} {anim.frame_index + 1}/{max(1, count)}",
+                 white),
+            ])
+
+        seq = getattr(self, "_active_attack_seq", None)
+        if seq is not None and seq.active:
+            who = "P" if seq.is_player else "E"
+            exp_flip = "True" if seq.flip else "False"
+            rows.append([(
+                f"seq: {seq.phase}  x={seq.current_x}  ({who})  "
+                f"flip={exp_flip}",
+                grey,
+            )])
+        return rows
+
     def _render_facing_overlay(self) -> None:
         """Stage 208 — F9: живая отладка фейсинга (folder+flip аниматоров).
 
-        Строка на аниматор (игрок/враг): папка кадров, флип, экшен, кадр N/M;
-        ниже — фаза активной attack-последовательности. flip подсвечивается
-        (True = красный — зеркало применено, False = зелёный — как есть).
-        Цель: на живом бою мгновенно видеть, откуда «смотрит не туда»
-        (не та папка / неожиданный flip). Не регистрирует ClickRect'ы.
+        Stage 209 — инвариант: рядом с фактом («смотрит X») показывается
+        ОЖИДАНИЕ (P — RIGHT / E — LEFT, с учётом RUN_BACK «бежит домой»);
+        несоответствие красным. Не регистрирует ClickRect'ы.
         """
         target = self._fullscreen_monitor if self._fullscreen_monitor is not None else self.screen
         font = pygame.font.SysFont("consolas,dejavusansmono,couriernew", 15)
         pad = 8
-        rows: list[list[tuple[str, tuple[int, int, int]]]] = []
-
-        def facing_row(tag: str, anim) -> list[tuple[str, tuple[int, int, int]]]:
-            if anim is None:
-                return [(f"{tag}: — (аниматор не создан)", (161, 161, 170))]
-            count = self.asset_manager.get_motion_frame_count(anim.folder)
-            flip_color = (248, 113, 113) if anim.flip else (74, 222, 128)
-            return [
-                (f"{tag}: {anim.folder} | flip=", (232, 232, 236)),
-                (f"{'True ' if anim.flip else 'False'}", flip_color),
-                (f"| act={anim.action} {anim.frame_index + 1}/{max(1, count)}", (232, 232, 236)),
-            ]
-
-        rows.append([(
-            f"F9 FACING  state={self.state.name}",
-            (234, 179, 8),
-        )])
-        rows.append(facing_row("P", getattr(self, "_player_animator", None)))
-        rows.append(facing_row("E", getattr(self, "_enemy_animator", None)))
-        seq = getattr(self, "_active_attack_seq", None)
-        if seq is not None and seq.active:
-            who = "P" if seq.is_player else "E"
-            rows.append([(
-                f"seq: {seq.phase}  x={seq.current_x}  ({who})  "
-                f"flip={'True' if seq.flip else 'False'}",
-                (161, 161, 170),
-            )])
+        rows = self._facing_overlay_rows()
 
         surfs = [[font.render(t, True, c) for t, c in row] for row in rows]
         w = max(sum(s.get_width() for s in row) for row in surfs) + pad * 2
@@ -1235,6 +1307,69 @@ class PygameUI(
                 target.blit(s, (cx, cy))
                 cx += s.get_width()
             cy += row[0].get_height() + 2
+
+    def _save_facing_report(self) -> None:
+        """Stage 209 — копипаст-репорт фейсинга: строки F9-оверлея в файл.
+
+        Пользователь присылает текст data/facing_report.txt — разбор
+        направления за минуту, без скриншотов (каждое нажатие F9
+        перезаписывает файл актуальным состоянием).
+        """
+        try:
+            from pockie_rpg.game.save_load import SAVE_DIR
+
+            SAVE_DIR.mkdir(parents=True, exist_ok=True)
+            path = SAVE_DIR / "facing_report.txt"
+            header = (
+                f"=== Pockie RPG — F9 facing report | "
+                f"{time.strftime('%Y-%m-%d %H:%M:%S')} ==="
+            )
+            lines = ["".join(t for t, _c in row)
+                     for row in self._facing_overlay_rows()]
+            path.write_text("\n".join([header, *lines]) + "\n",
+                            encoding="utf-8")
+            print(f"[F9] facing report saved: {path}")
+            # Stage 210 — плашка с ПОЛНЫМ путём на экране (3с): файл не
+            # нужно искать по папкам — путь виден сразу после нажатия.
+            self._facing_report_note = (f"Репорт сохранён: {path}", 3.0)
+        except Exception as exc:
+            print(f"[F9] facing report FAILED: {exc}")
+            self._facing_report_note = (
+                f"Репорт НЕ сохранён: {exc}", 5.0,
+            )
+
+    def _render_facing_report_note(self) -> None:
+        """Stage 210 — плашка «Репорт сохранён: <путь>» после нажатия F9.
+
+        Рисуется в левом НИЖНЕМ углу поверх всего (F9/F10-панели сверху).
+        Репорт-файл ищется по пути из плашки, а не по папкам проекта.
+        """
+        if self._facing_report_note is None:
+            return
+        target = (
+            self._fullscreen_monitor
+            if self._fullscreen_monitor is not None
+            else self.screen
+        )
+        text, remain = self._facing_report_note
+        font = pygame.font.SysFont("consolas,dejavusansmono,couriernew", 16)
+        surf = font.render(f"{text}  ({remain:.1f}s)", True, (250, 250, 250))
+        pad = 8
+        w = surf.get_width() + pad * 2
+        h = surf.get_height() + pad * 2
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((9, 9, 11, 224))
+        target.blit(panel, (12, target.get_height() - h - 12))
+        pygame.draw.rect(
+            target,
+            (234, 179, 8),
+            pygame.Rect(12, target.get_height() - h - 12, w, h),
+            1,
+        )
+        target.blit(
+            surf,
+            (12 + pad, target.get_height() - h - 12 + pad),
+        )
 
     def _present_fullscreen(self, flip: bool = True) -> None:
         """Stage 139.3 — ВСЯ игра на весь монитор; бой — окно 60% + блюр.
@@ -3521,6 +3656,12 @@ class PygameUI(
             # (иначе оставался «висеть» до компакции сейва).
             if item_id.startswith("outfit_inst_"):
                 self.player.outfit_instances.pop(item_id, None)
+            # Stage 211 — предмет покинул инвентарь: якорная память чистится
+            # (как в масс-продаже Stage 148); для стаков — только когда
+            # копий не осталось (стак остаётся в своей ячейке).
+            if (hasattr(self, "_inv_item_anchor_memory")
+                    and self.player.inv_find(item_id) is None):
+                self._inv_item_anchor_memory.pop(item_id, None)
         else:
             # Check if it's equipped.
             for slot, iid in list(self.player.equipped_gear.items()):

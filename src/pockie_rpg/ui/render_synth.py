@@ -759,13 +759,18 @@ class WardrobeRendererMixin:
                     name = gear.get("name", "?")
                     if plus > 0:
                         name = f"{name} +{plus}"
-                    n_surf = self._su_font(14).render(name, True, (220, 220, 225))
+                    # Stage 209 — имя в цвете качества костюма (серые/
+                    # синие/фиолетовые/оранжевые); нет — нейтральный.
+                    from pockie_rpg.config import COSTUME_QUALITY_RGB
+                    name_rgb = COSTUME_QUALITY_RGB.get(gear.get("quality", ""),
+                                                       (220, 220, 225))
+                    n_surf = self._su_font(14).render(name, True, name_rgb)
                     # Stage 156 — длинные имена обрезаются с «…» до зоны кнопки.
                     max_name_w = su(240) - su(16)
                     if n_surf.get_width() > max_name_w:
                         while n_surf.get_width() > max_name_w - su(14) and len(name) > 3:
                             name = name[:-1]
-                            n_surf = self._su_font(14).render(name + "…", True, (220, 220, 225))
+                            n_surf = self._su_font(14).render(name + "…", True, name_rgb)
                     self.screen.blit(n_surf, (name_x, rect.y + su(4)))
                     from pockie_rpg.config import outfit_synth_stat_multiplier
                     mult = outfit_synth_stat_multiplier(plus)

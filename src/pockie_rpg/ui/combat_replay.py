@@ -938,13 +938,12 @@ class CombatReplayMixin:
                     seq.phase = "RUN_BACK"
                     seq.phase_timer = 0.0
                     seq.phase_duration = ATTACK_SEQ_RUN_BACK_DURATION
-                    if animator.skin_actions is not None:
-                        # Stage 208 — скины не зеркалятся НИГДЕ (RULES П13):
-                        # на беге домой спрайт остаётся лицом к врагу
-                        # (пре-флипнутые ассеты рисуются как есть).
-                        seq.flip = False
-                    else:
-                        seq.flip = not seq.flip
+                    # Stage 209 — бег домой ЛИЦОМ ПО НАПРАВЛЕНИЮ движения
+                    # (пользователь: «должен смотреть в сторону куда бежит»;
+                    # в v204.1 инверсия была верна, Stage 208 ошибочно
+                    # отменил её для скинов). Инверсия универсальна: разворот
+                    # спиной к врагу = лицом к дому, для скинов и классики.
+                    seq.flip = not seq.flip
                     animator.set_action("run", self.asset_manager)
                     animator.set_flip(seq.flip)
 

@@ -244,9 +244,11 @@ class IdleAnimator:
 
         if self.is_player:
             if self.skin_actions is not None:
-                # Stage 208 — скины НИКОГДА не зеркалятся в рантайме:
-                # ассеты пре-отзеркалены при экстракции (RULES П13),
-                # рисуем как есть — во ВСЕХ экшенах flip=False.
+                # Stage 205/209 — база скина НЕ зеркалится: ассеты
+                # пре-отзеркалены при экстракции и смотрят ВПРАВО на врага
+                # (RULES П13) — во всех фазах «лицом к врагу» flip=False.
+                # Исключение — RUN_BACK: seq ставит флип через set_flip
+                # (бег домой лицом по направлению движения, Stage 209).
                 new_flip = False
             else:
                 new_flip = asset_manager.needs_flip_for_player(new_folder)
@@ -275,9 +277,9 @@ class IdleAnimator:
         разворачивал pre-flipped скины (cloth14, intrinsic RIGHT) спиной
         к врагу на беге/атаке.
 
-        Stage 208 — у кастомных скинов (skin_actions задан) база ВСЕГДА
-        False: их ассеты пре-отзеркалены на экстракции (RULES П13),
-        рантайм-зеркало запрещено полностью.
+        Stage 209 — у скинов база ВСЕГДА False (ассеты смотрят ВПРАВО на
+        врага как есть); на фазе RUN_BACK seq инвертирует флип — бег домой
+        лицом по направлению движения (пользователь Stage 209).
         """
         if self.skin_actions is not None:
             return False

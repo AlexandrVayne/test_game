@@ -2,20 +2,21 @@
   "name": "Игрок",
   "suit_id": "i290001",
   "role_id": 1,
-  "level": 2,
-  "current_xp": 50,
-  "max_xp": 200,
-  "gold": 100075,
+  "level": 5,
+  "current_xp": 75,
+  "max_xp": 500,
+  "gold": 100390,
   "coupons": 10500,
   "defeated_mobs": [
-    "mob_1"
+    "mob_1",
+    "flower_1"
   ],
-  "current_hp": 1310,
-  "current_mp": 410,
-  "strength": 11,
-  "agility": 10,
-  "stamina": 10,
-  "max_mp": 210,
+  "current_hp": 1520,
+  "current_mp": 440,
+  "strength": 15,
+  "agility": 11,
+  "stamina": 13,
+  "max_mp": 240,
   "active_skills": [
     12006,
     15005,
@@ -39,23 +40,24 @@
   "inventory": {
     "1": [
       "weapon_wooden",
-      "headband_ninja",
-      "vest_ninja",
-      "gloves_leather",
-      "belt_fabric",
-      "boots_shinobi",
-      "amulet_clan",
       "weapon_blunt2",
       "weapon_blunt3",
       "weapon_blunt4",
       "weapon_blunt5",
       "weapon_blunt6",
+      "headband_ninja",
+      "head_helm2",
+      "head_helm3",
+      "head_helm4",
+      "head_helm5",
+      "head_helm6",
+      "vest_ninja",
       "body_cloth2",
       "body_cloth3",
       "body_cloth4",
       "body_cloth5",
       "body_cloth6",
-      "boots_shoes2",
+      "amulet_clan",
       "ring_jade2",
       "ring_jade3",
       "ring_jade4",
@@ -71,7 +73,7 @@
       },
       {
         "item_id": "buff_xp_150",
-        "count": 3
+        "count": 2
       },
       {
         "item_id": "buff_xp_200",
@@ -182,33 +184,32 @@
       null,
       null,
       null,
-      null,
       null
     ],
     "2": [
-      "boots_shoes3",
-      "boots_shoes4",
-      "boots_shoes5",
-      "boots_shoes6",
+      "gloves_leather",
       "gloves_mitten2",
       "gloves_mitten3",
       "gloves_mitten4",
       "gloves_mitten5",
       "gloves_mitten6",
+      "belt_fabric",
       "belt_jade2",
       "belt_jade3",
       "belt_jade4",
       "belt_jade5",
       "belt_jade6",
-      "head_helm2",
-      "head_helm3",
-      "head_helm4",
-      "head_helm5",
-      "head_helm6",
+      "boots_shinobi",
+      "boots_shoes2",
+      "boots_shoes3",
+      "boots_shoes4",
+      "boots_shoes5",
+      "boots_shoes6",
+      "suit_ichigo",
       "suit_ichigo",
       "suit_ichigo",
       "suit_cloth14",
-      "suit_ichigo",
+      "suit_cloth14",
       "suit_ichigo",
       null,
       null,
@@ -317,8 +318,8 @@
     ],
     "3": [
       "suit_ichigo",
-      "suit_cloth14",
       "suit_ichigo",
+      null,
       null,
       null,
       null,
@@ -1407,7 +1408,7 @@
   "world_boss_hp": {
     "level": 1,
     "max_hp": 50000,
-    "current_hp": 50000,
+    "current_hp": 49671,
     "location": 1,
     "min_atk": 1000,
     "max_atk": 1500,
@@ -1418,7 +1419,8 @@
   "tower_shards": 0,
   "tower_pending_xp": 0,
   "daily_quest_progress": {
-    "kill_mobs": 3
+    "kill_mobs": 4,
+    "world_boss": 1
   },
   "daily_quest_claimed": [],
   "daily_quest_date": "2026-09-09",
@@ -1426,10 +1428,10 @@
   "tower_first_clear_claimed": [],
   "generated_weapons": {},
   "gen_w_counter": 18,
-  "_str_accum": 11.4,
-  "_agi_accum": 10.4,
-  "_sta_accum": 10.9,
-  "slot_next_roll_ts": null,
+  "_str_accum": 15.300000000000002,
+  "_agi_accum": 11.300000000000002,
+  "_sta_accum": 13.300000000000002,
+  "slot_next_roll_ts": 1788959067.8890243,
   "outfit_instances": {},
   "_outfit_inst_counter": 1,
   "wardrobe": [
@@ -1459,15 +1461,20 @@
     null,
     null
   ],
-  "active_buffs": [],
+  "active_buffs": [
+    {
+      "buff_id": "buff_xp_150",
+      "expires_ts": 1788962603.952367
+    }
+  ],
   "window_positions": {
     "synth": [
-      150,
-      229
+      210,
+      261
     ],
     "inventory": [
-      342,
-      99
+      498,
+      91
     ]
   },
   "synth_test_grant_v160": true,
