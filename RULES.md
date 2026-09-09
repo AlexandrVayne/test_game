@@ -175,11 +175,56 @@ cd src/pockie_rpg && python -m py_compile <все_изменённые_файл�
 
 ---
 
-## ПРАВИЛО 13 — SWF → PNG
+## ПРАВИЛО 13 — SWF → PNG: конвейер анимаций костюмов/мобов
 
-Извлечение кадров: `ffdec` (JPEXS) CLI, прозрачный фон (alpha), нумерация `1.png,
-2.png, ...` (digit-only stem), путь `assets/extracted/<role>/<action>/N.png`.
-Проверить facing — при необходимости запись в `INTRINSIC_FACING` (config.py).
+Извлечение кадров: `ffdec` (JPEXS) CLI — `java -jar ~/tools/ffdec/ffdec.jar
+-export sprite <outdir> <file.swf>` (FFDec 22.0.2 в `~/tools/ffdec`), прозрачный
+фон (alpha), нумерация `1.png, 2.png, ...` (digit-only stem), путь
+`assets/extracted/<skin>/<action>/N.png`. Hold-дубли таймлайна SWF СОХРАНЯТЬ
+(аутентичный тайминг — конвенция ichigo/cloth14).
+
+### Фейсинг спрайтов (КРИТИЧНО — урок Stage 205/207)
+1. **Пользователь при передаче файлов ВСЕГДА сообщает, куда смотрят исходные
+   спрайты** («влево»/«вправо»). Если не указано — уточнить ДО интеграции.
+2. Жёсткое правило боя: **игрок смотрит ВПРАВО** (на врага), **враг — ВЛЕВО**.
+3. Если исходник смотрит не туда — **отзеркалить ВСЕ экшены** (idle/attack/
+   run/hit/death) **НА ЭТАПЕ ЭКСТРАКЦИИ**: PIL `transpose(FLIP_LEFT_RIGHT)`,
+   lossless, попиксельная проверка (flip→re-mirror == original). Не полагаться
+   только на runtime-флип (см. п. 5).
+4. **ИТОГОВОЕ** (после зеркала) направление записать в `INTRINSIC_FACING`
+   (config.py) для КАЖДОЙ папки `<skin>/<action>`. Без записи включится
+   alpha-mass эвристика — она **обманывается причёской/хвостом** (Абараи:
+   «LEFT» из-за хвоста при лице вправо).
+5. **БАЗА СКИНА БЕЗ ЗЕРКАЛА, RUN_BACK — ПО ДВИЖЕНИЮ (Stage 209, финал)**:
+   у кастомных скинов (skin_actions задан: cloth14 и все будущие) база
+   всегда False (`set_action`, `base_flip`, spawn) — ассеты смотрят
+   ВПРАВО на врага «как есть» (зеркало ТОЛЬКО на экстракции, п. 3).
+   ИСКЛЮЧЕНИЕ — фаза RUN_BACK: универсальная инверсия
+   `seq.flip = not seq.flip` (семантика Stage 207) — боец бежит домой
+   ЛИЦОМ ПО НАПРАВЛЕНИЮ движения (P → LEFT, E → RIGHT). История:
+   Stage 208 отменял инверсию для скинов («не зеркалится НИГДЕ») —
+   пользователь вернул диагноз: «должен смотреть в сторону куда
+   бежит» (в v204.1 было правильно). Флип по `INTRINSIC_FACING`
+   остаётся для классики: Ичиго (LEFT → флип) и мобов.
+6. **НИКОГДА не хардкодить направление по роли** («игрок → flip=True»).
+   Источник флипа — `IdleAnimator.base_flip()` / `set_action` +
+   RUN_BACK-инверсия в seq (Stage 207/209). Хардкод «игрок → True»
+   разворачивал pre-flipped cloth14 спиной к врагу на беге/атаке.
+7. **ИНВАРИАНТ ФЕЙСИНГА + F9 (Stage 209)**: ожидаемое направление —
+   P → RIGHT / E → LEFT во всех фазах «лицом к врагу»; RUN_BACK — по
+   движению (P → LEFT, E → RIGHT). F9-оверлей показывает для каждого
+   аниматора: папка | flip | СМОТРИТ X | ожид. Y — факт рядом с
+   ожиданием, несоответствие КРАСНЫМ (✗), сходится зелёным (✓); факт
+   считается из INTRINSIC_FACING ⊕ flip (не по alpha-эвристике).
+   Каждое нажатие F9 сохраняет строки оверлея в
+   `data/facing_report.txt` — копипаст-репорт: присылаете текстом,
+   разбор за минуту (без скриншотов).
+8. Верификация: `scripts/diag_stage209.py` (статы Абарая + качество
+   костюмов + RUN_BACK-фейсинг + F9-инвариант/репорт),
+   `scripts/diag_stage208.py` (обновлён под Stage 209),
+   `scripts/diag_stage207.py` (флип по фазам, ichigo/враг 1:1) +
+   живая проверка на бою: **F9 — фейсинг-оверлей** (инвариант факт/
+   ожидание; репорт в data/facing_report.txt); тест-панель — F8.
 
 ---
 
@@ -187,8 +232,10 @@ cd src/pockie_rpg && python -m py_compile <все_изменённые_файл�
 
 Тестов в проекте НЕТ намеренно. Проверка = `py_compile` + `ruff` + headless-диагностики
 (`scripts/diag_*.py`, `scripts/hidpi_smoke.py`, SDL dummy) + ручной запуск
-(`python -m pockie_rpg.main`, F9/F10/F12). Не создавать `test_*.py`.
-Исключение: `ui/test_battle.py` — это не тест, а TestBattleMixin (F9 dev-режим).
+(`python -m pockie_rpg.main`, F8 тест-панель / F9 фейсинг-оверлей + репорт
+в data/facing_report.txt / F10 Hi-DPI / F12 лог боя).
+Не создавать `test_*.py`. Исключение: `ui/test_battle.py` — это не тест,
+а TestBattleMixin (F8 dev-режим с Stage 208).
 
 ---
 
@@ -204,6 +251,32 @@ cd src/pockie_rpg && python -m py_compile <все_изменённые_файл�
 Не писать «всё готово», если: py_compile падает / dev-сервер traceback'ает /
 превью белый экран / фича реализована частично. Лучше «не успел / не вышло»,
 чем врать.
+
+---
+
+## ПРАВИЛО 17 — Костюмы: качество и добавление новых (Stage 209)
+
+**4 тира качества** (как у предметов): Grey (Серый) / Blue (Синий) /
+Purple (Фиолетовый) / Orange (Оранжевый). Палитры — `config.py`:
+`COSTUME_QUALITY_ORDER/RU/BG/RGB`; качество живёт в поле `"quality"`
+записей OUTFITS_DB + EQUIPMENT_DB; отсутствие поля = Grey. Фон ячейки,
+рамка тултипа, заголовок и имя в гардеробе красятся АВТОМАТИЧЕСКИ
+(`_blit_gear_icon`, `_render_outfit_tooltip`, `_render_wardrobe_modal`) —
+код при добавлении костюма НЕ трогается.
+
+**Новый костюм = только данные** (Stage 205-209 конвейер):
+1. Кадры 5 экшенов → `assets/extracted/<skin>/<action>/N.png`
+   (П13: экстракция + зеркало + INTRINSIC_FACING).
+2. `config.py`: ACTIONS-таблица + PLAYER_MOTION_SKINS[<skin>].
+3. `item_db.py`: OUTFITS_DB[<suit>] = name / archetype / base_stats /
+   bmv_price / growth / **quality** / motion_skin=<skin> / suit_id;
+   EQUIPMENT_DB[<suit>] = name / icon_filename / **quality** / sell_price;
+   (иконка → assets/icons/items/).
+4. `roles_db.py`: Suit i29XXXX (avatar/pose/name) + связка suit_id.
+5. Статы костюма ВСЕГДА берутся у пользователя (формат: «Сила 26 (+1.3) …
+   BMV: 10 силы → 1%…») — не выдумывать.
+6. Диагностика: `scripts/diag_stage209.py` секции A (данные) — расширить
+   под новый костюм по образцу.
 
 ---
 

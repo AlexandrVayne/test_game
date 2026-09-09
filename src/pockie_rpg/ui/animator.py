@@ -172,6 +172,9 @@ class IdleAnimator:
     Switches between action folders (idle/attack/run/hit/death/etc.) via
     set_action(). Death actions freeze on the last frame after one play.
     Player (Ichigo) and enemy (samurai) use different action maps.
+
+    Stage 205 — скин игрока: skin_actions (action name → folder) подменяет
+    ichigo-мапу, если надет костюм с motion_skin (None = классический Ичиго).
     """
 
     folder: str
@@ -185,6 +188,7 @@ class IdleAnimator:
     frame_period: float = 1.0 / IDLE_FPS
     _frozen: bool = False
     idle_folder: str = ""
+    skin_actions: dict[str, str] | None = None
 
     def set_action(
         self,
@@ -199,11 +203,16 @@ class IdleAnimator:
         new_fps: int = ACTION_FPS.get(action_name, IDLE_FPS)
 
         if self.is_player:
-            action_id = ICHIGO_ACTION_BY_NAME.get(action_name)
-            if action_id is not None and action_id in ICHIGO_ACTIONS:
-                new_folder = ICHIGO_ACTIONS[action_id]["folder"]
+            if self.skin_actions is not None:
+                # Stage 205 — скин от надетого костюма (action name → folder).
+                new_folder = self.skin_actions.get(action_name) \
+                    or self.idle_folder or self.folder
             else:
-                new_folder = self.idle_folder or self.folder
+                action_id = ICHIGO_ACTION_BY_NAME.get(action_name)
+                if action_id is not None and action_id in ICHIGO_ACTIONS:
+                    new_folder = ICHIGO_ACTIONS[action_id]["folder"]
+                else:
+                    new_folder = self.idle_folder or self.folder
         else:
             mapped_name = ENEMY_ACTION_NAME_MAP.get(action_name, action_name)
             if self.role_id == 10002:  # Blue Swordsman (Синий мечник)
@@ -234,7 +243,13 @@ class IdleAnimator:
                     new_folder = self.idle_folder or self.folder
 
         if self.is_player:
-            new_flip = asset_manager.needs_flip_for_player(new_folder)
+            if self.skin_actions is not None:
+                # Stage 208 — скины НИКОГДА не зеркалятся в рантайме:
+                # ассеты пре-отзеркалены при экстракции (RULES П13),
+                # рисуем как есть — во ВСЕХ экшенах flip=False.
+                new_flip = False
+            else:
+                new_flip = asset_manager.needs_flip_for_player(new_folder)
         else:
             new_flip = asset_manager.needs_flip_for_enemy(new_folder)
 
@@ -249,6 +264,27 @@ class IdleAnimator:
     def set_flip(self, flip: bool) -> None:
         """Override the flip state at runtime (used by AttackSequence)."""
         self.flip = flip
+
+    def base_flip(self, asset_manager: AssetManager) -> bool:
+        """Flip for this fighter standing at its base (idle) position.
+
+        Stage 207 — единый источник флипа «лицом к врагу»: игрок всегда
+        ВПРАВО, враг всегда ВЛЕВО, направление выводится из внутреннего
+        фейсинга папки скина (INTRINSIC_FACING). Хардкод «игрок → True»
+        в AttackSequence был верен только для Ичиго (intrinsic LEFT) и
+        разворачивал pre-flipped скины (cloth14, intrinsic RIGHT) спиной
+        к врагу на беге/атаке.
+
+        Stage 208 — у кастомных скинов (skin_actions задан) база ВСЕГДА
+        False: их ассеты пре-отзеркалены на экстракции (RULES П13),
+        рантайм-зеркало запрещено полностью.
+        """
+        if self.skin_actions is not None:
+            return False
+        folder = self.idle_folder or self.folder
+        if self.is_player:
+            return asset_manager.needs_flip_for_player(folder)
+        return asset_manager.needs_flip_for_enemy(folder)
 
     def update(self, dt: float, asset_manager: AssetManager) -> None:
         """Advance frame cycling. Death actions freeze on the last frame."""
@@ -269,10 +305,6 @@ class IdleAnimator:
                     return
                 next_idx = next_idx % frame_count
             self.frame_index = next_idx
-
-    def get_breathing_offset(self) -> int:
-        """Return 0 (programmatic breathing removed; SWF frames contain motion)."""
-        return 0
 
     def get_sprite(self, asset_manager: AssetManager) -> pygame.Surface:
         """Return the current frame, scaled + flipped."""

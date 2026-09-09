@@ -361,7 +361,7 @@ class CombatReplayMixin:
         # event entirely, so the death animation never played. Now we set the
         # death action on the animator before starting endgame.
         #
-        # Баг-фикс 2026-09 (battle_bug_report.md §4): обнуление ЧУЖОГО
+        # Баг-фикс 2026-09 (симуляционный аудит боёв): обнуление ЧУЖОГО
         # HP-дисплея удалено — при смерти Ичиго бар ВРАГА схлопывался в ноль
         # (иллюзия «враг тоже упал» + окно «Поражение»). Бар победителя
         # остаётся на его реальном HP. Двухстрочный дубль в ветке смерти
@@ -777,12 +777,19 @@ class CombatReplayMixin:
             base_x = PLAYER_SPRITE_X
             reach_x = ATTACK_SEQ_PLAYER_REACH_X
             strike_x = ATTACK_SEQ_PLAYER_STRIKE_X
-            initial_flip = True
         else:
             base_x = ENEMY_SPRITE_X
             reach_x = ATTACK_SEQ_ENEMY_REACH_X
             strike_x = ATTACK_SEQ_ENEMY_STRIKE_X
-            initial_flip = False
+
+        is_ranged = attack_info.get("is_ranged", 0)
+        # Stage 207 — исходный флип атакующего от ВНУТРЕННЕГО фейсинга его
+        # скина (set_action вычисляет через needs_flip_for_player/enemy).
+        # Хардкод «игрок → True / враг → False» был верен только для Ичиго
+        # (intrinsic LEFT) и разворачивал pre-flipped cloth14 (intrinsic
+        # RIGHT) спиной к врагу на беге/атаке.
+        animator.set_action("attack" if is_ranged == 1 else "run", self.asset_manager)
+        initial_flip = animator.flip
 
         seq = AttackSequence()
         seq.start(
@@ -808,14 +815,6 @@ class CombatReplayMixin:
             shield_absorbed=attack_info.get("shield_absorbed", 0),
         )
         self._active_attack_seq = seq
-
-        is_ranged = attack_info.get("is_ranged", 0)
-        if is_ranged == 1:
-            animator.set_action("attack", self.asset_manager)
-            animator.set_flip(initial_flip)
-        else:
-            animator.set_action("run", self.asset_manager)
-            animator.set_flip(initial_flip)
 
     def _maybe_start_cast_effect(
         self,
@@ -910,7 +909,8 @@ class CombatReplayMixin:
                     seq.damage_applied = True
                     seq.phase = "DONE"
                     seq.active = False
-                    default_flip = True if seq.is_player else False
+                    # Stage 207 — возврат к базовому флипу скина (НЕ хардкод).
+                    default_flip = animator.base_flip(self.asset_manager)
                     animator.set_action("idle", self.asset_manager)
                     animator.set_flip(default_flip)
                     seq.flip = default_flip
@@ -938,7 +938,13 @@ class CombatReplayMixin:
                     seq.phase = "RUN_BACK"
                     seq.phase_timer = 0.0
                     seq.phase_duration = ATTACK_SEQ_RUN_BACK_DURATION
-                    seq.flip = not seq.flip
+                    if animator.skin_actions is not None:
+                        # Stage 208 — скины не зеркалятся НИГДЕ (RULES П13):
+                        # на беге домой спрайт остаётся лицом к врагу
+                        # (пре-флипнутые ассеты рисуются как есть).
+                        seq.flip = False
+                    else:
+                        seq.flip = not seq.flip
                     animator.set_action("run", self.asset_manager)
                     animator.set_flip(seq.flip)
 
@@ -952,8 +958,9 @@ class CombatReplayMixin:
                 seq.phase = "DONE"
                 seq.active = False
                 seq.current_x = seq.base_x
-                seq.flip = not seq.flip
-                default_flip = True if seq.is_player else False
+                # Stage 207 — возврат к базовому флипу скина (НЕ хардкод);
+                # прежний seq.flip = not seq.flip здесь перезаписывается.
+                default_flip = animator.base_flip(self.asset_manager)
                 animator.set_action("idle", self.asset_manager)
                 animator.set_flip(default_flip)
                 seq.flip = default_flip

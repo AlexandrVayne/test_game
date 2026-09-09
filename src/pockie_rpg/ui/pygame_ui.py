@@ -63,8 +63,8 @@ from pockie_rpg.game.save_load import SaveManager, load_player_state
 from pockie_rpg.game.state import (
     ENEMY_MOBS,
     ROLES,
-    STARTER_SUITS,
     create_default_player,
+    resolve_player_suit,
 )
 from pockie_rpg.ui.animator import ClickRect, IdleAnimator
 from pockie_rpg.ui.assets import AssetManager
@@ -385,7 +385,8 @@ class PygameUI(
         # Stage 131 — new shop: 5 random items based on player level.
         self._shop_items: list[str] = []
         self._shop_last_level: int = -1
-        self._shop_eq_subtab: int = 0
+        # Stage 204 — _shop_eq_subtab удалён (саб-табы магазина не существуют;
+        # страница сбрасывается в _set_shop_tab).
         # Stage 70 — titles modal (Звания).
         self._titles_modal_open: bool = False
         # Stage 89 — TOWER MODE modals + battle context.
@@ -497,6 +498,8 @@ class PygameUI(
         # Stage 152 — отладочный оверлей Hi-DPI (тумблер F10).
         self._debug_overlay: bool = False
         self._debug_frame_ms: float = 0.0
+        # Stage 208 — фейсинг-оверлей (тумблер F9): folder+flip аниматоров.
+        self._facing_overlay: bool = False
         # Stage 138 — SYNTH (синтез костюмов) + WARDROBE (гардероб) — ПРАВИЛО 9.
         # Stage 164 — слоты хранят item_id (предмет физически вне инвентаря).
         # Stage 166 — _synth_result_item: результат синтеза (+N+1) ОСТАЁТСЯ
@@ -692,9 +695,14 @@ class PygameUI(
                         else:
                             self._save_combat_debug_log()
                             print("[DEBUG] Combat debug log saved to data/combat_debug.txt (F12)")
-                    elif event.key == pygame.K_F9:
-                        # Stage 109 — toggle test panel (admin/dev panel).
+                    elif event.key == pygame.K_F8:
+                        # Stage 208 — test panel (admin/dev panel) переехал
+                        # с F9 на F8: сам F9 отдан фейсинг-оверлею.
                         self._toggle_test_panel()
+                    elif event.key == pygame.K_F9:
+                        # Stage 208 — фейсинг-оверлей: folder+flip аниматоров
+                        # (живая отладка направления спрайта в бою).
+                        self._facing_overlay = not self._facing_overlay
                     elif event.key == pygame.K_F10:
                         # Stage 152 — отладочный оверлей Hi-DPI (масштабы, кэши).
                         self._debug_overlay = not self._debug_overlay
@@ -1032,7 +1040,7 @@ class PygameUI(
                         # Stage 151 — при нативном инвентаре контекст-меню
                         # рендерится в native-фазе (поверх композита).
                         self._render_context_menu()
-                    # Stage 109 — Test Panel (admin/dev panel, F9).
+                    # Stage 109 — Test Panel (admin/dev panel, F8 с Stage 208).
                     if self._test_panel_open:
                         self._render_test_panel()
                     # Stage 73 — render endgame overlay for instant boss fights.
@@ -1080,6 +1088,10 @@ class PygameUI(
             if self._debug_overlay:
                 self._debug_frame_ms = dt * 1000.0
                 self._render_debug_overlay()
+            # Stage 208 — фейсинг-оверлей поверх всего (после нативной фазы),
+            # рядом с F10-панелью (в левом верхнем углу). ClickRect'ов нет.
+            if self._facing_overlay:
+                self._render_facing_overlay()
             pygame.display.flip()
 
     def _render_debug_overlay(self) -> None:
@@ -1168,6 +1180,61 @@ class PygameUI(
         for s in surfs:
             target.blit(s, (x + pad, cy))
             cy += s.get_height() + 2
+
+    def _render_facing_overlay(self) -> None:
+        """Stage 208 — F9: живая отладка фейсинга (folder+flip аниматоров).
+
+        Строка на аниматор (игрок/враг): папка кадров, флип, экшен, кадр N/M;
+        ниже — фаза активной attack-последовательности. flip подсвечивается
+        (True = красный — зеркало применено, False = зелёный — как есть).
+        Цель: на живом бою мгновенно видеть, откуда «смотрит не туда»
+        (не та папка / неожиданный flip). Не регистрирует ClickRect'ы.
+        """
+        target = self._fullscreen_monitor if self._fullscreen_monitor is not None else self.screen
+        font = pygame.font.SysFont("consolas,dejavusansmono,couriernew", 15)
+        pad = 8
+        rows: list[list[tuple[str, tuple[int, int, int]]]] = []
+
+        def facing_row(tag: str, anim) -> list[tuple[str, tuple[int, int, int]]]:
+            if anim is None:
+                return [(f"{tag}: — (аниматор не создан)", (161, 161, 170))]
+            count = self.asset_manager.get_motion_frame_count(anim.folder)
+            flip_color = (248, 113, 113) if anim.flip else (74, 222, 128)
+            return [
+                (f"{tag}: {anim.folder} | flip=", (232, 232, 236)),
+                (f"{'True ' if anim.flip else 'False'}", flip_color),
+                (f"| act={anim.action} {anim.frame_index + 1}/{max(1, count)}", (232, 232, 236)),
+            ]
+
+        rows.append([(
+            f"F9 FACING  state={self.state.name}",
+            (234, 179, 8),
+        )])
+        rows.append(facing_row("P", getattr(self, "_player_animator", None)))
+        rows.append(facing_row("E", getattr(self, "_enemy_animator", None)))
+        seq = getattr(self, "_active_attack_seq", None)
+        if seq is not None and seq.active:
+            who = "P" if seq.is_player else "E"
+            rows.append([(
+                f"seq: {seq.phase}  x={seq.current_x}  ({who})  "
+                f"flip={'True' if seq.flip else 'False'}",
+                (161, 161, 170),
+            )])
+
+        surfs = [[font.render(t, True, c) for t, c in row] for row in rows]
+        w = max(sum(s.get_width() for s in row) for row in surfs) + pad * 2
+        h = sum(row[0].get_height() + 2 for row in surfs) + pad * 2
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((9, 9, 11, 214))
+        target.blit(panel, (12, 12))
+        pygame.draw.rect(target, (82, 82, 91), pygame.Rect(12, 12, w, h), 1)
+        cy = 12 + pad
+        for row in surfs:
+            cx = 12 + pad
+            for s in row:
+                target.blit(s, (cx, cy))
+                cx += s.get_width()
+            cy += row[0].get_height() + 2
 
     def _present_fullscreen(self, flip: bool = True) -> None:
         """Stage 139.3 — ВСЯ игра на весь монитор; бой — окно 60% + блюр.
@@ -1395,7 +1462,7 @@ class PygameUI(
         """Stage 201 — рисуется ли бой в этом кадре НАТИВНО (Hi-DPI окно).
 
         Условия: монитор + целочисленный ui_scale > 1 (как у MAP, Stage 153),
-        состояние BATTLE (TEST_BATTLE остаётся legacy — dev-режим F9) и
+        состояние BATTLE (TEST_BATTLE остаётся legacy — dev-режим F8) и
         "battle" в NATIVE_MODAL_REGISTRY.
         """
         if self._fullscreen_monitor is None or self._ui_scale <= 1.0:
@@ -1766,9 +1833,78 @@ class PygameUI(
         self._legacy_layer_scaled = None
         # НЕ quit: цикл продолжается.
 
+    def _spawn_enemy_fighter(self, enemy_role: dict, enemy) -> None:
+        """Stage 204 — единая фабрика врага: Fighter.from_role + IdleAnimator.
+
+        Было 3 копии (_enter_battle, гонтлет, test_battle); в test_battle копия
+        расходилась: папка "samurai_idle" не существует (надо MOB_TO_MOTION)
+        и терялся role_id (спец-обработка синего/чёрного самурая в аниматоре).
+        """
+        self._enemy_fighter = Fighter.from_role(
+            enemy_role,
+            is_player=False,
+            level=enemy.level,
+            hp_mul=enemy.hp_mul,
+            atk_mul=enemy.atk_mul,
+        )
+        enemy_motion_folder = MOB_TO_MOTION.get(enemy.mob_id, "samurai/idle")
+        enemy_flip = self.asset_manager.needs_flip_for_enemy(
+            enemy_motion_folder, mob_id=enemy.mob_id
+        )
+        self._enemy_animator = IdleAnimator(
+            folder=enemy_motion_folder,
+            flip=enemy_flip,
+            phase=math.pi,
+            is_player=False,
+            role_id=enemy.role_id,
+            action="idle",
+            idle_folder=enemy_motion_folder,
+        )
+
+    def _player_skin_actions(self) -> dict[str, str] | None:
+        """Stage 205 — сет анимаций игрока от надетого костюма (или None)."""
+        from pockie_rpg.config import PLAYER_MOTION_SKINS
+        from pockie_rpg.data.item_db import get_outfit
+        model = self.player.equipped_outfit
+        if model.startswith("outfit_inst_"):
+            inst = self.player.outfit_instances.get(model)
+            model = inst["outfit_id"] if inst else None
+        outfit = get_outfit(model) if model else None
+        skin = outfit.get("motion_skin") if outfit else None
+        return PLAYER_MOTION_SKINS.get(skin) if skin else None
+
+    def _spawn_player_animator(self, phase: float = 0.0) -> None:
+        """Stage 205 — единая фабрика аниматора игрока (скин от костюма).
+
+        Было 4 копии (_enter_battle, башня, гонтлет, test_battle) на
+        suit.motion_folder с жёсткой ichigo-мапой внутри аниматора; надетый
+        костюм с motion_skin теперь подменяет сет анимаций целиком.
+        """
+        suit = resolve_player_suit(self.player)
+        if suit is None:
+            return
+        skin_actions = self._player_skin_actions()
+        idle_folder = (skin_actions.get("idle") if skin_actions else None) \
+            or suit.motion_folder
+        if skin_actions is not None:
+            # Stage 208 — скин пре-отзеркален на экстракции (RULES П13):
+            # рантайм-зеркало запрещено, ассеты рисуются как есть.
+            player_flip = False
+        else:
+            player_flip = self.asset_manager.needs_flip_for_player(idle_folder)
+        self._player_animator = IdleAnimator(
+            folder=idle_folder,
+            flip=player_flip,
+            phase=phase,
+            is_player=True,
+            action="idle",
+            idle_folder=idle_folder,
+            skin_actions=skin_actions,
+        )
+
     def _enter_battle(self) -> None:
         """Transition MAP -> BATTLE."""
-        suit = STARTER_SUITS.get(self.player.suit_id)
+        suit = resolve_player_suit(self.player)
         enemy = ENEMY_MOBS.get(self.target_mob_id)
         if suit is None or enemy is None:
             return
@@ -1788,84 +1924,15 @@ class PygameUI(
             return
 
         self._player_fighter = Fighter.from_player_state(self.player, player_role)
-        self._enemy_fighter = Fighter.from_role(
-            enemy_role,
-            is_player=False,
-            level=enemy.level,
-            hp_mul=enemy.hp_mul,
-            atk_mul=enemy.atk_mul,
-        )
-
-        player_flip = self.asset_manager.needs_flip_for_player(suit.motion_folder)
-        self._player_animator = IdleAnimator(
-            folder=suit.motion_folder,
-            flip=player_flip,
-            phase=0.0,
-            is_player=True,
-            action="idle",
-            idle_folder=suit.motion_folder,
-        )
-
-        enemy_motion_folder = MOB_TO_MOTION.get(enemy.mob_id, "samurai_idle")
-        enemy_flip = self.asset_manager.needs_flip_for_enemy(
-            enemy_motion_folder, mob_id=enemy.mob_id
-        )
-        self._enemy_animator = IdleAnimator(
-            folder=enemy_motion_folder,
-            flip=enemy_flip,
-            phase=math.pi,
-            is_player=False,
-            role_id=enemy.role_id,
-            action="idle",
-            idle_folder=enemy_motion_folder,
-        )
+        self._spawn_enemy_fighter(enemy_role, enemy)
+        # Stage 205 — фабрика игрока (скин от надетого костюма).
+        self._spawn_player_animator()
 
         self._player_hp_display = float(self._player_fighter.hp)
         self._player_mp_display = float(self._player_fighter.mp)
         self._enemy_hp_display = float(self._enemy_fighter.hp)
         self._enemy_mp_display = float(self._enemy_fighter.mp)
-
-        self._active_attack_seq = None
-        self._player_hit_timer = 0.0
-        self._enemy_hit_timer = 0.0
-        self._enemy_shake_timer = 0.0
-
-        self._combat_replay = None
-        self._replay_event_idx = 0
-        self._replay_timer = 0.0
-        self._endgame_active = False
-        self._endgame_timer = 0.0
-        self._combat_log_lines.clear()
-        self._combat_log_expanded = False
-        self._combat_log_height_display = float(LOG_BAR_H)
-        self._speed_buttons_y_offset = 0.0
-
-        self._countdown_active = True
-        self._countdown_timer = 0.0
-        self._countdown_phase_idx = 0
-
-        self._char_sheet_open = False
-        self._char_sheet_closing = False
-        self._char_sheet_anim_t = 0.0
-        self._char_sheet_origin = "left"
-        self._char_sheet2_open = False
-        self._char_sheet2_closing = False
-        self._char_sheet2_anim_t = 0.0
-        self._char_sheet2_origin = "right"
-
-        self._battle_speed = float(BATTLE_SPEED_DEFAULT)
-        self._particles.clear()
-        self._damage_numbers.clear()
-        self._player_ice.deactivate()
-        self._enemy_ice.deactivate()
-        self._player_shield.deactivate()
-        self._enemy_shield.deactivate()
-        self._player_cloud.deactivate()
-        self._enemy_cloud.deactivate()
-        self._player_poison.deactivate()
-        self._enemy_poison.deactivate()
-        self._cast_effect.deactivate()
-        self._projectile_effect.deactivate()
+        self._reset_battle_common_state()
 
         # Stage 160 — снапшот фона локации для боя (фон не меняется в бою).
         self._capture_battle_bg_snapshot()
@@ -1915,53 +1982,8 @@ class PygameUI(
         self._enemy_animator = None
         self._player_fighter = None
         self._enemy_fighter = None
-        self._active_attack_seq = None
-        self._player_hit_timer = 0.0
-        self._enemy_hit_timer = 0.0
-        self._enemy_shake_timer = 0.0
-        self._countdown_active = False
-        self._countdown_timer = 0.0
-        self._countdown_phase_idx = 0
-        self._combat_replay = None
-        self._replay_event_idx = 0
-        self._replay_timer = 0.0
-        self._endgame_active = False
-        self._endgame_text = ""
-        self._endgame_phase = "text"
-        self._endgame_text_timer = 0.0
-        self._endgame_xp_gained = 0
-        self._endgame_gold_gained = 0
-        self._endgame_leveled_up = False
-        self._endgame_old_level = 1
-        self._endgame_new_level = 1
-        self._combat_log_lines.clear()
-        self._combat_log_expanded = False
-        self._combat_log_height_display = float(LOG_BAR_H)
-        self._speed_buttons_y_offset = 0.0
-        self._skills_modal_open = False
-        self._char_sheet_open = False
-        self._char_sheet_closing = False
-        self._char_sheet_anim_t = 0.0
-        self._char_sheet_origin = "left"
-        # Stage 63 — also reset slot 2 on exit battle.
-        self._char_sheet2_open = False
-        self._char_sheet2_closing = False
-        self._char_sheet2_anim_t = 0.0
-        self._char_sheet2_origin = "right"
+        self._reset_battle_common_state(countdown_active=False)
 
-        self._battle_speed = float(BATTLE_SPEED_DEFAULT)
-        self._particles.clear()
-        self._damage_numbers.clear()
-        self._player_ice.deactivate()
-        self._enemy_ice.deactivate()
-        self._player_shield.deactivate()
-        self._enemy_shield.deactivate()
-        self._player_cloud.deactivate()
-        self._enemy_cloud.deactivate()
-        self._player_poison.deactivate()
-        self._enemy_poison.deactivate()
-        self._cast_effect.deactivate()
-        self._projectile_effect.deactivate()
         # Stage 71/72/77 — reset World Boss fight state (but keep boss HP + attempts).
         self._world_boss_active = False
         self._world_boss_damage_dealt = 0
@@ -2103,18 +2125,6 @@ class PygameUI(
             self._modal_fade_alpha = min(self._modal_fade_target, self._modal_fade_alpha + delta)
         else:
             self._modal_fade_alpha = max(self._modal_fade_target, self._modal_fade_alpha - delta)
-
-    def _get_modal_fade_alpha(self) -> float:
-        """Stage 128 — Get the current modal fade alpha (0.0-1.0).
-
-        Used by modal render methods to apply a semi-transparent overlay
-        during the fade animation. When alpha < 1.0, the modal is still
-        animating in (or out). The render method can use this to:
-          - Scale the modal position (slide-in effect)
-          - Apply alpha to the modal background
-          - Skip rendering child elements when alpha is very low
-        """
-        return self._modal_fade_alpha
 
     def _set_inv_page(self, page: int) -> None:
         """Stage 64 — switch the inventory modal to page 1, 2, or 3.
@@ -2394,12 +2404,6 @@ class PygameUI(
         self._tower_selected_floor = self.player.tower_current_floor
         self._tower_scroll_offset = max(0, self._tower_selected_floor - 5)
 
-    def _exit_las_noches(self) -> None:
-        """Stage 91 — return from Las Noches to the City."""
-        from pockie_rpg.config import MapLocation
-        self._map_location = MapLocation.CITY
-        self._las_noches_dialog = None
-
     def _close_tower(self) -> None:
         """Close the Tower modal."""
         self._tower_modal_open = False
@@ -2412,10 +2416,6 @@ class PygameUI(
     def _close_tower_shop(self) -> None:
         """Close the Tower Shop sub-modal."""
         self._tower_shop_open = False
-
-    def _select_tower_floor(self, floor: int) -> None:
-        """Select a floor row in the Tower modal (highlights it)."""
-        self._tower_selected_floor = floor
 
     def _scroll_tower(self, delta: int) -> None:
         """Scroll the Tower floor list up/down by ``delta`` rows."""
@@ -2452,7 +2452,7 @@ class PygameUI(
             return
 
         # Build the player Fighter (same as normal battle).
-        suit = STARTER_SUITS.get(self.player.suit_id)
+        suit = resolve_player_suit(self.player)
         if suit is None:
             return
         self._player_fighter = Fighter.from_player_state(self.player, player_role)
@@ -2477,11 +2477,8 @@ class PygameUI(
             self._enemy_fighter.tough_rating += 200
 
         # Animators (reuse existing motion mapping).
-        player_flip = self.asset_manager.needs_flip_for_player(suit.motion_folder)
-        self._player_animator = IdleAnimator(
-            folder=suit.motion_folder, flip=player_flip, phase=0.0,
-            is_player=True, action="idle", idle_folder=suit.motion_folder,
-        )
+        # Stage 205 — фабрика игрока (скин от надетого костюма).
+        self._spawn_player_animator()
         # Enemy motion folder — tower floors use existing mob IDs, so look up
         # via the enemy_id. For flower_1 it's "flower/idle", for samurai_* it's
         # "samurai/idle" / "blue_swordsman/idle" / "black_samurai/idle".
@@ -2498,41 +2495,7 @@ class PygameUI(
         self._player_mp_display = float(self._player_fighter.mp)
         self._enemy_hp_display = float(self._enemy_fighter.hp)
         self._enemy_mp_display = float(self._enemy_fighter.mp)
-        self._active_attack_seq = None
-        self._player_hit_timer = 0.0
-        self._enemy_hit_timer = 0.0
-        self._enemy_shake_timer = 0.0
-        self._combat_replay = None
-        self._replay_event_idx = 0
-        self._replay_timer = 0.0
-        self._endgame_active = False
-        self._endgame_timer = 0.0
-        self._combat_log_lines.clear()
-        self._combat_log_expanded = False
-        self._combat_log_height_display = float(LOG_BAR_H)
-        self._speed_buttons_y_offset = 0.0
-        self._countdown_active = True
-        self._countdown_timer = 0.0
-        self._countdown_phase_idx = 0
-        self._char_sheet_open = False
-        self._char_sheet_closing = False
-        self._char_sheet_anim_t = 0.0
-        self._char_sheet2_open = False
-        self._char_sheet2_closing = False
-        self._char_sheet2_anim_t = 0.0
-        self._battle_speed = float(BATTLE_SPEED_DEFAULT)
-        self._particles.clear()
-        self._damage_numbers.clear()
-        self._player_ice.deactivate()
-        self._enemy_ice.deactivate()
-        self._player_shield.deactivate()
-        self._enemy_shield.deactivate()
-        self._player_cloud.deactivate()
-        self._enemy_cloud.deactivate()
-        self._player_poison.deactivate()
-        self._enemy_poison.deactivate()
-        self._cast_effect.deactivate()
-        self._projectile_effect.deactivate()
+        self._reset_battle_common_state()
 
         # Stage 89 — set Tower battle context.
         self._battle_mode = BattleMode.TOWER
@@ -2791,7 +2754,7 @@ class PygameUI(
             self._gauntlet_active = False
             return
         enemy = ENEMY_MOBS.get(self._gauntlet_enemies[self._gauntlet_round])
-        suit = STARTER_SUITS.get(self.player.suit_id)
+        suit = resolve_player_suit(self.player)
         player_role = ROLES.get(self.player.role_id)
         enemy_role = ROLES.get(enemy.role_id) if enemy is not None else None
         if suit is None or player_role is None or enemy is None or enemy_role is None:
@@ -2808,36 +2771,9 @@ class PygameUI(
         self._player_fighter = Fighter.from_player_state(self.player, player_role)
         self._player_fighter.hp = max(1, int(self._gauntlet_hp))
         self._player_fighter.mp = max(0, int(self._gauntlet_mp))
-        self._enemy_fighter = Fighter.from_role(
-            enemy_role,
-            is_player=False,
-            level=enemy.level,
-            hp_mul=enemy.hp_mul,
-            atk_mul=enemy.atk_mul,
-        )
-
-        player_flip = self.asset_manager.needs_flip_for_player(suit.motion_folder)
-        self._player_animator = IdleAnimator(
-            folder=suit.motion_folder,
-            flip=player_flip,
-            phase=0.0,
-            is_player=True,
-            action="idle",
-            idle_folder=suit.motion_folder,
-        )
-        enemy_motion_folder = MOB_TO_MOTION.get(enemy.mob_id, "samurai_idle")
-        enemy_flip = self.asset_manager.needs_flip_for_enemy(
-            enemy_motion_folder, mob_id=enemy.mob_id
-        )
-        self._enemy_animator = IdleAnimator(
-            folder=enemy_motion_folder,
-            flip=enemy_flip,
-            phase=math.pi,
-            is_player=False,
-            role_id=enemy.role_id,
-            action="idle",
-            idle_folder=enemy_motion_folder,
-        )
+        self._spawn_enemy_fighter(enemy_role, enemy)
+        # Stage 205 — фабрика игрока (скин от надетого костюма).
+        self._spawn_player_animator()
 
         self._player_hp_display = float(self._player_fighter.hp)
         self._player_mp_display = float(self._player_fighter.mp)
@@ -2922,8 +2858,13 @@ class PygameUI(
     # (вся сцена подменялась размытым снапшотом). Теперь окна рисуются
     # поверх неизменённой живой сцены — как «Карта мира» и магазин.
 
-    def _reset_battle_common_state(self) -> None:
-        """Stage 133 — battle-entry resets shared by _enter_battle flows."""
+    def _reset_battle_common_state(self, countdown_active: bool = True) -> None:
+        """Stage 133/204 — единая точка сброса боевого состояния.
+
+        Используется _enter_battle, _enter_tower_battle, _exit_battle,
+        гонтлетом и test_battle (раньше — 6 расходившихся копий).
+        countdown_active=False — для выходов из боя и TEST_BATTLE.
+        """
         self._active_attack_seq = None
         self._player_hit_timer = 0.0
         self._enemy_hit_timer = 0.0
@@ -2933,11 +2874,20 @@ class PygameUI(
         self._replay_timer = 0.0
         self._endgame_active = False
         self._endgame_timer = 0.0
+        self._endgame_text = ""
+        self._endgame_phase = "text"
+        self._endgame_text_timer = 0.0
+        self._endgame_xp_gained = 0
+        self._endgame_gold_gained = 0
+        self._endgame_leveled_up = False
+        self._endgame_old_level = 1
+        self._endgame_new_level = 1
         self._combat_log_lines.clear()
         self._combat_log_expanded = False
         self._combat_log_height_display = float(LOG_BAR_H)
         self._speed_buttons_y_offset = 0.0
-        self._countdown_active = True
+        self._skills_modal_open = False
+        self._countdown_active = countdown_active
         self._countdown_timer = 0.0
         self._countdown_phase_idx = 0
         self._char_sheet_open = False
@@ -3090,24 +3040,11 @@ class PygameUI(
         self.player.add_tower_material(material_id, 1)
         self.save_mgr.mark_dirty()
 
-    def _buy_tower_consumable(self, item_key: str, cost: int) -> None:
-        """Stage 89 — disabled placeholder. Does NOT change state.
-
-        Per §8: disabled items must not change player state. The UI shows
-        them with a "Скоро" tooltip but the click handler is a no-op.
-        """
-        return
-
     def _set_shop_tab(self, tab: int) -> None:
         """Stage 59 — switch shop tab (0=снаряжение, 1=самоцветы)."""
         self._shop_active_tab = tab
         # Stage 67 — reset equipment page when switching tabs.
         self._shop_equipment_page = 0
-
-    def _set_shop_eq_subtab(self, subtab: int) -> None:
-        """Stage 69 — switch equipment sub-tab (0=всё, 1=оружие, 2=броня)."""
-        self._shop_eq_subtab = subtab
-        self._shop_equipment_page = 0  # reset to first page
 
     def _open_titles_modal(self) -> None:
         """Stage 70 — open the Titles (Звания) modal."""
@@ -3120,12 +3057,6 @@ class PygameUI(
         # (which shows player stats + title bonuses). A dedicated settings
         # modal can be added later.
         self._titles_modal_open = True
-
-    def _exit_game_from_bar(self) -> None:
-        """Stage 94 — exit button in the bottom bar. Saves + quits."""
-        import pygame
-        self.save_mgr.flush()
-        pygame.event.post(pygame.event.Event(pygame.QUIT))
 
     # ------------------------------------------------------------------
     # Stage 95 — Daily Quests
@@ -3373,27 +3304,6 @@ class PygameUI(
             return "B"
         else:
             return "F"
-
-    def _shop_equipment_prev_page(self) -> None:
-        """Stage 67 — go to the previous equipment page in the shop."""
-        if self._shop_equipment_page > 0:
-            self._shop_equipment_page -= 1
-
-    def _shop_equipment_next_page(self) -> None:
-        """Stage 67 — go to the next equipment page in the shop."""
-        from pockie_rpg.data.item_db import EQUIPMENT_DB, get_equipment
-        all_items = [item_id for item_id in EQUIPMENT_DB.keys() if item_id != "suit_ichigo"]
-        # Stage 69 — filter by sub-tab.
-        if self._shop_eq_subtab == 1:  # оружие
-            shop_items = [iid for iid in all_items if get_equipment(iid) and get_equipment(iid).get("slot") == "weapon"]
-        elif self._shop_eq_subtab == 2:  # броня
-            shop_items = [iid for iid in all_items if get_equipment(iid) and get_equipment(iid).get("slot") != "weapon"]
-        else:
-            shop_items = all_items
-        items_per_page = 12  # 4 cols × 3 rows
-        max_page = max(0, (len(shop_items) - 1) // items_per_page)
-        if self._shop_equipment_page < max_page:
-            self._shop_equipment_page += 1
 
     def _buy_item(self, item_id: str) -> None:
         """Stage 59/133 — buy an equipment item from the shop.

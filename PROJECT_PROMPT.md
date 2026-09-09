@@ -126,7 +126,7 @@ python -m pockie_rpg.main
 
 ```
 src/pockie_rpg/
-├── config.py                    (2185)  UI/окна/данные-константы + UI_THEME (Stage 203 — семантические цвета UI, постепенная замена сырых RGB) + TowerDB +
+├── config.py                    (2385)  UI/окна/данные-константы + UI_THEME (Stage 203 — семантические цвета UI, постепенная замена сырых RGB) + PLAYER_MOTION_SKINS (Stage 205 — скины анимаций игрока) + COSTUME_QUALITY_* (Stage 209 — 4 тира качества костюмов) + TowerDB +
 │                                       прогрессия/экономика (Stage 170: LEVEL_XP_CURVE,
 │                                       ATK_TIME_*, GEM_*, TEST_START_*); боевая математика
 │                                       ПЕРЕЕХАЛА в combat/formulas.py — в конце
@@ -134,11 +134,11 @@ src/pockie_rpg/
 ├── main.py                        (40)  entry point: pygame.init + PygameUI().run()
 │
 ├── data/                                  Layer A — frozen dataclasses + datasets
-│   ├── models.py                 (248)  Role, EnemyDef, Suit, CharacterStats
-│   ├── roles_db.py               (173)  5 ролей (Ichigo + 4 самурая + Flower) + STARTER_SUITS + ENEMY_MOBS
+│   ├── models.py                 (249)  Role, EnemyDef, Suit (+pose_filename, Stage 206), CharacterStats
+│   ├── roles_db.py               (213)  5 ролей (Ichigo + 4 самурая + Flower) + STARTER_SUITS (i290001 Ичиго, i290014 Ренджи Абараи) + resolve_player_suit + ENEMY_MOBS
 │   ├── enemy_db.py               (206)  13 врагов (samurai_1..12, flower_1)
-│   ├── item_db.py                (933)  EQUIPMENT_DB (42), OUTFITS_DB (4), GEMS_DB (5), generate_item() + _GENERATOR_SPECS (Stage 169 — 1 генератор вместо 7 копипаст-функций)
-│   ├── tower_db.py               (369)  100 этажей + 10 боссов + TowerReward/Floor/Boss
+│   ├── item_db.py               (1070)  EQUIPMENT_DB (43), OUTFITS_DB (5, поле quality — Stage 209), GEMS_DB (5), generate_item() + _GENERATOR_SPECS (Stage 169 — 1 генератор вместо 7 копипаст-функций); Stage 204: DEFAULT_GEAR_ICONS/DEFAULT_TYPE_TO_SLOT; Stage 205: suit_cloth14 с motion_skin (костюм меняет анимации игрока); Stage 209: официальные статы Абарая 26/6/16 (+1.3/+0.3/+0.8), BMV 10/21/12
+│   ├── tower_db.py               (352)  100 этажей + 10 боссов + TowerReward/Floor/Boss
 │   ├── titles_db.py              (209)  13 званий (novice..legend, tower_conqueror — Stage 170)
 │   ├── daily_quests.py            (76)  4 дейлика
 │   ├── quests_db.py              (163)  Stage 172/173 — STORY_QUESTS (4 квеста: talk_to/use_item/kill_mobs), STORY_QUEST_CHAIN, chain_prerequisites_met
@@ -146,37 +146,37 @@ src/pockie_rpg/
 │   └── worldmap_db.py            (130)  Stage 135 — WORLD_ZONES (35), ROUTE_MARKERS (26), ZONE_MARKER_INDEX, LOCATION_MIN_UNLOCK (из assets/worldmap/config.json)
 │
 ├── combat/                                Layer B — mutable combat runtime
-│   ├── formulas.py               (655)  Stage 168 (аудит 5.1) — БОЕВАЯ
+│   ├── formulas.py               (606)  Stage 168 (аудит 5.1) — БОЕВАЯ
 │   │                                    МАТЕМАТИКА: рейтинги calc_*_rating,
 │   │                                    hit chance, ШАГИ rating→%, пайплайн
 │   │                                    урона apply_*_stage, BMV-хелперы,
 │   │                                    growth-дефолты; только stdlib —
 │   │                                    разрывает цикл combat→config
 │   ├── events.py                 (191)  EventType(IntEnum), FightValue, FightSave
-│   ├── fighter.py                (451)  Fighter @dataclass(slots) + from_role/from_player_state
+│   ├── fighter.py                (453)  Fighter @dataclass(slots) + from_role/from_player_state
 │   ├── status_manager.py         (454)  StatusManager (freeze/poison/shield/cloud/extra_turn/burn)
-│   ├── skill_registry.py         (284)  SKILL_REGISTRY (6 навыков) + SkillDef
+│   ├── skill_registry.py         (278)  SKILL_REGISTRY (6 навыков) + SkillDef
 │   ├── damage.py                 (426)  compute_attack, execute_skill, try_skill, apply_skill_effects
 │   └── fight.py                  (469)  FightSystem.fight() — SPEED-LAW turn loop
 │
 ├── game/                                   Layer C — persistent player state
-│   ├── state.py                 (2404)  PlayerState (player progression, recalc_stats, rewards, сюжетные квесты Stage 172)
-│   └── save_load.py              (~695)  SaveManager (debounce+троттлинг) + atomic JSON + rolling slots ×3 + validate_save
+│   ├── state.py                 (2791)  PlayerState (player progression, recalc_stats, rewards, сюжетные квесты Stage 172)
+│   └── save_load.py              (726)  SaveManager (debounce+троттлинг) + atomic JSON + rolling slots ×3 + validate_save
 │
 └── ui/                                     Layer D — Pygame rendering + input
-    ├── pygame_ui.py             (3744)  PygameUI — главный контроллер, event loop, FSM, 16 mixins; Stage 170: _finalize_gauntlet_on_exit/_settle_gauntlet_rewards (ESC-гантлет)
-    ├── animator.py               (255)  IdleAnimator + AttackSequence (фазы анимации) + ClickRect
-    ├── assets.py                 (668)  AssetManager (LRU-кеш спрайтов, фреймов, иконок, фонтов)
-    ├── effects.py                (430)  IceBlockEffect, EffectOverlay, CastEffect, ProjectileEffect
+    ├── pygame_ui.py             (4331)  PygameUI — главный контроллер, event loop, FSM, 16 mixins; Stage 170: _finalize_gauntlet_on_exit/_settle_gauntlet_rewards (ESC-гантлет); Stage 204: _spawn_enemy_fighter (фабрика врага ×3→1) + _reset_battle_common_state(countdown_active=) — единый сброс боевого состояния; Stage 205: _spawn_player_animator (фабрика игрока ×4→1, скин от надетого костюма)
+    ├── animator.py               (319)  IdleAnimator (+skin_actions — скин игрока, Stage 205) + AttackSequence (фазы анимации) + ClickRect
+    ├── assets.py                 (664)  AssetManager (LRU-кеш спрайтов, фреймов, иконок)
+    ├── effects.py                (324)  Stage 204 — иерархия: LoopingOverlay (цикл) ← EffectOverlay ← IceBlockEffect; OneShotEffect (update + _sprite) ← CastEffect, ProjectileEffect
     ├── particles.py              (338)  ParticleSystem + DamageNumberSystem
     ├── tooltip.py                 (~175)  Stage 202/203: единая «панель у курсора» — TooltipLine (в т.ч. rule-линии)/PanelStyle (min_w)/render_tooltip_panel (cursor|anchor, prefer_below, перенос, флип у краёв); используют тултипы статусов (render_battle), лута (render_quick_battle) и бафов MAP (render_map)
-    ├── combat_replay.py         (1068)  CombatReplayMixin — реплей боя, тайминги, применение урона
+    ├── combat_replay.py         (1382)  CombatReplayMixin — реплей боя, тайминги, применение урона
     ├── render_battle.py         (1150)  BattleRendererMixin — экран боя (HUD, бойцы, оверлеи, endgame); Stage 202: _render_hud → 5 методов; Stage 203: _render_bar(simple=True) — общий рендер полосок MAP+бой, endgame без hasattr-гардов/fallback, иконки лута _su_image(fit=True)
     ├── render_worldmap.py       (~560)  WorldMapRendererMixin — Stage 135: мировая карта (5 слоёв, хиттест, тултип)
     ├── scaling.py               (~300)  ScalableRendererMixin — Stage 152/153: _su/_su_font/_su_rect/_su_icon_size/_su_scaled/_su_image/_su_overlay + fade модалок; Stage 168 (аудит 5.2): _su_text (LRU) + _static_surface; Stage 203: _su_image(fit=True) — вписывание с сохранением пропорций (неквадратные иконки) + _draw_close_x_square (общий визуал Х-кнопок)
     ├── render_map.py            (~865)  MapRendererMixin — MAP НАТИВНО (Hi-DPI, Stage 153) + bottom bar + enemy cards (клик по ВСЕЙ карточке — Stage 167); Stage 203: HP/MP/EXP через _render_bar(simple=True), баф-тултип через ui/tooltip.py (prefer_below), _render_map_bar удалена
-    ├── render_inventory.py     (~1795)  InventoryRendererMixin — инвентарь НАТИВНО (Hi-DPI, Stage 151), drag&drop; сетка 12×8, окно 491, кнопки 118, 10 вкладок (Stage 167; ITEMS_PER_PAGE=128 не урезать — визуальный гейт _can_visually_fit); заглушки (Stage 163); якоря-списки (Stage 164); тултип БЕЗ «Продажа»/«[RARITY]» (Stage 177)
-    ├── render_synth.py           (~775)  Synth+WardrobeRendererMixin — синтез костюмов (400×248, 4 слота в ряд с ячейками 2 кол. × 3 ряда — Stage 167; слоты хранят item_id — физический перенос, возврат ПКМ/кликом; результат +N+1 остаётся в слоте результата, «(костюм +N)»/шанс под ним; тултипы слотов — Stage 166) + гардероб (480×484; 25 слотов = 5 страниц × 5 с пагинацией снизу, глобальный индекс страница×5+i — Stage 167); без затемнения (Stage 162)
+    ├── render_inventory.py     (~1965)  InventoryRendererMixin — инвентарь НАТИВНО (Hi-DPI, Stage 151), drag&drop; сетка 12×8, окно 491, кнопки 118, 10 вкладок (Stage 167; ITEMS_PER_PAGE=128 не урезать — визуальный гейт _can_visually_fit); заглушки (Stage 163); якоря-списки (Stage 164); тултип БЕЗ «Продажа»/«[RARITY]» (Stage 177)
+    ├── render_synth.py           (~842)  Synth+WardrobeRendererMixin — синтез костюмов (400×248, 4 слота в ряд с ячейками 2 кол. × 3 ряда — Stage 167; слоты хранят item_id — физический перенос, возврат ПКМ/кликом; результат +N+1 остаётся в слоте результата, «(костюм +N)»/шанс под ним; тултипы слотов — Stage 166) + гардероб (480×484; 25 слотов = 5 страниц × 5 с пагинацией снизу, глобальный индекс страница×5+i — Stage 167); без затемнения (Stage 162)
     ├── render_forge.py          (922)  ForgeRendererMixin — Кузница НАТИВНО (Hi-DPI, Stage 152): заточка/камни/синтез
     ├── render_shop.py            (337)  ShopRendererMixin — магазин (тултип БЕЗ «Продажа» — Stage 177)
     ├── render_tower.py           (344)  TowerRendererMixin — Башня (100 этажей, shop, result)
@@ -188,7 +188,7 @@ src/pockie_rpg/
     ├── render_slot_machine.py    (~200)  SlotMachineRendererMixin — слот-машина v2 (окно 420×260, без текстов; до прокрутки — аватарки врагов _slot_idle_faces, Stage 167)
     ├── render_test_panel.py      (503)  TestPanelRendererMixin — F9 dev-панель
     ├── render_misc_modals.py     (364)  MiscModalsRendererMixin — звания, арена, дейлики
-    └── test_battle.py            (481)  TestBattleMixin — F9 TEST_BATTLE state
+    └── test_battle.py            (380)  TestBattleMixin — F9 TEST_BATTLE state (Stage 204/205: вход через общие фабрики _spawn_enemy_fighter + _spawn_player_animator)
 ```
 
 ---
@@ -661,12 +661,19 @@ if shield_effect.active:
 **Stage v132.1 fix:** ice block + shield dome теперь привязаны к `actual_x + X_OFFSET` (раньше — фиксированная позиция). Y = `SPRITE_BASE_Y - RENDER_H//2 + Y_OFFSET` → "стоит на земле", не прыгает по кадрам. Размеры 280×210 (раньше 340×270 / 334×270).
 
 ### 8.3 Effect overlay классы (`effects.py`)
-| Класс | Тип | Поведение |
+
+Stage 204 — иерархия вместо копипасты (вид и API не изменились):
+`LoopingOverlay` (activate/deactivate/update-цикл/render по центру) ←
+`EffectOverlay` ← `IceBlockEffect`; `OneShotEffect` (update «проиграл и
+погас» + `_sprite`) ← `CastEffect`, `ProjectileEffect`.
+
+| Класс | База | Поведение |
 |---|---|---|
-| `IceBlockEffect` | looping | пока `freeze` активен, 8 FPS, centered на (cx, cy) |
-| `EffectOverlay` | looping | shield/cloud/poison — generic, параметризуется folder+fps+w+h |
-| `CastEffect` | one-shot | играет N кадров → auto-deactivate (не используется сейчас, кроме Fireball через ProjectileEffect) |
-| `ProjectileEffect` | one-shot | 3 фазы: Phase 1 (`frame < CAST_HOLD_FRAMES=3`) — anchor на caster; Phase 2 — linear travel caster→target; Phase 3 — anchor на target (explosion) |
+| `LoopingOverlay` | — | ядро цикла: frame_index/frame_timer, lazy frame_count |
+| `IceBlockEffect` | EffectOverlay | пока `freeze` активен, 8 FPS, centered на (cx, cy) |
+| `EffectOverlay` | LoopingOverlay | shield/cloud/poison — generic, параметризуется folder+fps+w+h |
+| `CastEffect` | OneShotEffect | играет N кадров → auto-deactivate |
+| `ProjectileEffect` | OneShotEffect | 3 фазы: Phase 1 (`frame < CAST_HOLD_FRAMES=3`) — anchor на caster; Phase 2 — linear travel caster→target; Phase 3 — anchor на target (explosion) |
 
 **Активация:**
 - `EffectOverlay`/`IceBlockEffect`: `activate(asset_manager)` (idempotent), `deactivate()`.
@@ -674,7 +681,20 @@ if shield_effect.active:
 
 ### 8.4 Animation — IdleAnimator + AttackSequence
 - `IdleAnimator.set_action(action_name, asset_manager)` мапит action → folder через role-specific dicts:
-  - Player (Ichigo): `ICHIGO_ACTION_BY_NAME` → `ICHIGO_ACTIONS[action_id]["folder"]`.
+  - Player skin (Stage 205): если у аниматора `skin_actions` (name→folder из
+    `PLAYER_MOTION_SKINS[suit.motion_skin]`) — скин надетого костюма
+    подменяет ВСЕ папки игрока; неизвестное действие → idle-папка скина;
+    `skin_actions=None` → классический Ичиго: `ICHIGO_ACTION_BY_NAME` →
+    `ICHIGO_ACTIONS[action_id]["folder"]`. Создание аниматора игрока —
+    только через фабрику `pygame_ui._spawn_player_animator()` (скин резолвит
+    `_player_skin_actions()`: equipped_outfit → outfit_inst_ → OUTFITS_DB).
+  - ВНЕШНИЙ ОБЛИК игрока (Stage 206) — везде через `resolve_player_suit(player)`
+    (roles_db): equipped_outfit → OUTFITS_DB["suit_id"] → STARTER_SUITS;
+    fallback player.suit_id. Возвращает Suit (имя/аватар/поза/motion_folder):
+    HUD-аватар и плашка имени боя, аватар панели карты, шапка чар-листа
+    (только игрок), поза инвентаря (`Suit.pose_filename`, кэш
+    `_char_pose_raws[filename]` в render_inventory). НЕ меняет player.suit_id
+    (чистый резолвер — состояние сейва не трогает).
   - Enemy 10001 (Samurai): `SAMURAI_ACTION_BY_NAME`.
   - Enemy 10002 (Blue Swordsman): `BLUE_SWORDSMAN_ACTION_BY_NAME`.
   - Enemy 10004 (Black Samurai): `BLACK_SAMURAI_ACTION_BY_NAME`.
@@ -685,7 +705,25 @@ if shield_effect.active:
 ### 8.5 Facing detection (`assets.py`)
 - `INTRINSIC_FACING` dict (config.py) — hardcoded facing для каждого motion folder.
 - Fallback: alpha-mass heuristic (upper 60% спрайта, left_mass vs right_mass).
-- Player всегда flip'ится чтобы смотреть вправо, enemy — влево.
+  **Ненадёжна** для причёсок/хвостов (Абараи даёт «LEFT» при лице вправо) —
+  новые папки ВСЕГДА регистрировать в INTRINSIC_FACING (RULES П13).
+- Player всегда смотрит ВПРАВО, enemy — ВЛЕВО; нужный флип выводится из
+  intrinsic facing папки (needs_flip_for_player/enemy).
+- Stage 205 cloth14: кадры ПРЕДФЛИПНУТЫ (INTRINSIC_FACING=RIGHT) —
+  needs_flip_for_player=False, runtime-флипа нет.
+- Stage 207: **`IdleAnimator.base_flip()` — единственный источник флипа
+  атакующей последовательности** (combat_replay: старт seq, ranged DONE,
+  RUN_BACK DONE). Хардкод «игрок → True» удалён — он разворачивал
+  pre-flipped скины спиной к врагу на беге/атаке.
+- Stage 209 (ФИНАЛ): база скина всегда flip=False (лицом к врагу,
+  ассеты «как есть»); RUN_BACK — универсальная инверсия флипа для ВСЕХ
+  (скинов тоже): боец бежит домой ЛИЦОМ ПО НАПРАВЛЕНИЮ движения
+  (P → LEFT, E → RIGHT). История: Stage 208 отменял инверсию скинам —
+  пользователь вернул диагноз (в v204.1 было правильно).
+- Stage 209 — F9-фейсинг-оверлей-инвариант: строка на аниматор =
+  папка | flip | СМОТРИТ X | ожид. Y (P → RIGHT / E → LEFT; RUN_BACK —
+  по движению), расхождение красным ✗; факт = INTRINSIC_FACING ⊕ flip.
+  Каждое нажатие F9 пишет строки в `data/facing_report.txt`.
 
 ### 8.6 Drag-and-drop (Stage 64-67, inventory)
 - LMB-down записывает позицию + слот.
@@ -938,7 +976,9 @@ python -m py_compile config.py ui/render_battle.py ui/effects.py ui/combat_repla
 ### 12.4 Ассеты
 - Спрайты: `assets/extracted/<role>/<action>/N.png` (1.png, 2.png, ...).
 - Backgrounds: `assets/backgrounds/<name>.jpg`.
-- Avatars: `assets/avatars/userface_NNNNN.png`.
+- Avatars: `assets/icons/avatar/userface_*.{gif,png}` (HUD игрока и врагов).
+- Full-body poses: `assets/icons/character/people_*_pose.png` (инвентарь,
+  файл от Suit.pose_filename).
 - Skill icons: `assets/skills/icons/icon_skill<id>.png`.
 - Gem icons: `assets/gems/<gem_icon_filename>`.
 - Fonts: `assets/fonts/Ninja Naruto.ttf`.

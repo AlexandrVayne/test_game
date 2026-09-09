@@ -2,32 +2,31 @@
   "name": "Игрок",
   "suit_id": "i290001",
   "role_id": 1,
-  "level": 11,
-  "current_xp": 950,
-  "max_xp": 1100,
-  "gold": 1410,
+  "level": 2,
+  "current_xp": 50,
+  "max_xp": 200,
+  "gold": 100075,
   "coupons": 10500,
   "defeated_mobs": [
-    "mob_1",
-    "mob_2",
-    "mob_3"
+    "mob_1"
   ],
-  "current_hp": 1860,
-  "current_mp": 500,
-  "strength": 15,
-  "agility": 23,
-  "stamina": 15,
-  "max_mp": 300,
+  "current_hp": 1310,
+  "current_mp": 410,
+  "strength": 11,
+  "agility": 10,
+  "stamina": 10,
+  "max_mp": 210,
   "active_skills": [
     12006,
     15005,
     10001,
+    14001,
     18003,
     14002
   ],
   "equipped_outfit": "suit_ichigo",
   "equipped_gear": {
-    "weapon": "weapon_wooden",
+    "weapon": null,
     "head": null,
     "body": null,
     "hands": null,
@@ -39,7 +38,7 @@
   },
   "inventory": {
     "1": [
-      null,
+      "weapon_wooden",
       "headband_ninja",
       "vest_ninja",
       "gloves_leather",
@@ -208,7 +207,7 @@
       "head_helm6",
       "suit_ichigo",
       "suit_ichigo",
-      "suit_ichigo",
+      "suit_cloth14",
       "suit_ichigo",
       "suit_ichigo",
       null,
@@ -318,22 +317,22 @@
     ],
     "3": [
       "suit_ichigo",
-      "gen_w_001",
-      "gen_w_002",
-      "gen_w_003",
-      "gen_w_004",
-      "gen_w_005",
-      "gen_w_006",
-      "gen_w_007",
-      "gen_w_008",
-      "gen_w_009",
-      "gen_w_010",
-      "gen_w_011",
-      "gen_w_012",
-      "gen_w_013",
-      "gen_w_014",
-      "gen_w_015",
-      "gen_w_016",
+      "suit_cloth14",
+      "suit_ichigo",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
@@ -1358,53 +1357,7 @@
     ]
   },
   "gear_enchants": {},
-  "gem_inventory": [
-    {
-      "id": "gem_1",
-      "type": "gem_blue",
-      "level": 1
-    },
-    {
-      "id": "gem_2",
-      "type": "gem_red",
-      "level": 1
-    },
-    {
-      "id": "gem_3",
-      "type": "gem_orange",
-      "level": 1
-    },
-    {
-      "id": "gem_4",
-      "type": "gem_orange",
-      "level": 1
-    },
-    {
-      "id": "gem_5",
-      "type": "gem_orange",
-      "level": 1
-    },
-    {
-      "id": "gem_6",
-      "type": "gem_blue",
-      "level": 1
-    },
-    {
-      "id": "gem_7",
-      "type": "gem_green",
-      "level": 1
-    },
-    {
-      "id": "gem_8",
-      "type": "gem_red",
-      "level": 1
-    },
-    {
-      "id": "gem_9",
-      "type": "gem_red",
-      "level": 1
-    }
-  ],
+  "gem_inventory": [],
   "gear_gem_slots": {
     "weapon": [
       null,
@@ -1447,7 +1400,7 @@
       null
     ]
   },
-  "_gem_id_counter": 9,
+  "_gem_id_counter": 0,
   "active_title": "legend",
   "world_boss_attempts": 3,
   "world_boss_next_attempt_ts": null,
@@ -1455,7 +1408,7 @@
     "level": 1,
     "max_hp": 50000,
     "current_hp": 50000,
-    "location": 2,
+    "location": 1,
     "min_atk": 1000,
     "max_atk": 1500,
     "killed_count": 0
@@ -1465,284 +1418,20 @@
   "tower_shards": 0,
   "tower_pending_xp": 0,
   "daily_quest_progress": {
-    "kill_mobs": 25
+    "kill_mobs": 3
   },
   "daily_quest_claimed": [],
-  "daily_quest_date": "2026-09-08",
+  "daily_quest_date": "2026-09-09",
   "tower_materials": {},
   "tower_first_clear_claimed": [],
-  "generated_weapons": {
-    "gen_w_001": {
-      "name": "Жилет ниндзя",
-      "slot": "body",
-      "item_level": 1,
-      "level_requirement": 1,
-      "rarity": "Grey",
-      "stats": {
-        "defense": 5,
-        "max_hp": 15
-      },
-      "icon_filename": "vest_ninja.png",
-      "sell_price": 50,
-      "generated": true,
-      "template_id": "vest_ninja",
-      "item_type": "armor"
-    },
-    "gen_w_002": {
-      "name": "Повязка шиноби [Purple]",
-      "slot": "head",
-      "item_level": 1,
-      "level_requirement": 1,
-      "rarity": "Purple",
-      "stats": {
-        "defense": 3,
-        "max_hp": 15,
-        "block_rating": 2,
-        "hit_pct": 2
-      },
-      "icon_filename": "headband_ninja.png",
-      "sell_price": 120,
-      "generated": true,
-      "template_id": "headband_ninja",
-      "item_type": "head"
-    },
-    "gen_w_003": {
-      "name": "Кожаная броня",
-      "slot": "body",
-      "item_level": 5,
-      "level_requirement": 5,
-      "rarity": "Grey",
-      "stats": {
-        "defense": 12,
-        "max_hp": 35
-      },
-      "icon_filename": "body_cloth2.gif",
-      "sell_price": 120,
-      "generated": true,
-      "template_id": "body_cloth2",
-      "item_type": "armor"
-    },
-    "gen_w_004": {
-      "name": "Кожаная броня [Blue]",
-      "slot": "body",
-      "item_level": 5,
-      "level_requirement": 5,
-      "rarity": "Blue",
-      "stats": {
-        "defense": 12,
-        "max_hp": 35,
-        "tough_pct": 1
-      },
-      "icon_filename": "body_cloth2.gif",
-      "sell_price": 240,
-      "generated": true,
-      "template_id": "body_cloth2",
-      "item_type": "armor"
-    },
-    "gen_w_005": {
-      "name": "Туфли ловкости [Purple]",
-      "slot": "boots",
-      "item_level": 5,
-      "level_requirement": 5,
-      "rarity": "Purple",
-      "stats": {
-        "defense": 3,
-        "speed": 12,
-        "tough_rating": 2,
-        "block_pct": 2
-      },
-      "icon_filename": "boots_shoes2.gif",
-      "sell_price": 120,
-      "generated": true,
-      "template_id": "boots_shoes2",
-      "item_type": "boots"
-    },
-    "gen_w_006": {
-      "name": "Булава новичка [Purple]",
-      "slot": "weapon",
-      "item_level": 5,
-      "level_requirement": 5,
-      "rarity": "Purple",
-      "stats": {
-        "min_atk": 7,
-        "max_atk": 13,
-        "pierce_rating": 3,
-        "hit_rating": 2
-      },
-      "icon_filename": "weapon_blunt2.gif",
-      "sell_price": 280,
-      "generated": true,
-      "template_id": "weapon_blunt2"
-    },
-    "gen_w_007": {
-      "name": "Деревянный меч",
-      "slot": "weapon",
-      "item_level": 1,
-      "level_requirement": 1,
-      "rarity": "Grey",
-      "stats": {
-        "min_atk": 3,
-        "max_atk": 6
-      },
-      "icon_filename": "weapon_wooden.png",
-      "sell_price": 30,
-      "generated": true,
-      "template_id": "weapon_wooden"
-    },
-    "gen_w_008": {
-      "name": "Сандалии ниндзя [Purple]",
-      "slot": "boots",
-      "item_level": 1,
-      "level_requirement": 1,
-      "rarity": "Purple",
-      "stats": {
-        "defense": 1,
-        "speed": 5,
-        "tough_pct": 2,
-        "pierce_rating": 1
-      },
-      "icon_filename": "boots_shinobi.png",
-      "sell_price": 40,
-      "generated": true,
-      "template_id": "boots_shinobi",
-      "item_type": "boots"
-    },
-    "gen_w_009": {
-      "name": "Стальная булава [Blue]",
-      "slot": "weapon",
-      "item_level": 10,
-      "level_requirement": 10,
-      "rarity": "Blue",
-      "stats": {
-        "min_atk": 12,
-        "max_atk": 22,
-        "hit_pct": 4
-      },
-      "icon_filename": "weapon_blunt3.gif",
-      "sell_price": 240,
-      "generated": true,
-      "template_id": "weapon_blunt3"
-    },
-    "gen_w_010": {
-      "name": "Стальная булава",
-      "slot": "weapon",
-      "item_level": 10,
-      "level_requirement": 10,
-      "rarity": "Grey",
-      "stats": {
-        "min_atk": 12,
-        "max_atk": 22
-      },
-      "icon_filename": "weapon_blunt3.gif",
-      "sell_price": 120,
-      "generated": true,
-      "template_id": "weapon_blunt3"
-    },
-    "gen_w_011": {
-      "name": "Пояс клана",
-      "slot": "belt",
-      "item_level": 10,
-      "level_requirement": 10,
-      "rarity": "Grey",
-      "stats": {
-        "defense": 10,
-        "tough_rating": 10
-      },
-      "icon_filename": "belt_jade3.gif",
-      "sell_price": 100,
-      "generated": true,
-      "template_id": "belt_jade3",
-      "item_type": "belt"
-    },
-    "gen_w_012": {
-      "name": "Стальная булава [Blue]",
-      "slot": "weapon",
-      "item_level": 10,
-      "level_requirement": 10,
-      "rarity": "Blue",
-      "stats": {
-        "min_atk": 12,
-        "max_atk": 22,
-        "crit_pct": 3
-      },
-      "icon_filename": "weapon_blunt3.gif",
-      "sell_price": 240,
-      "generated": true,
-      "template_id": "weapon_blunt3"
-    },
-    "gen_w_013": {
-      "name": "Стальная булава [Blue]",
-      "slot": "weapon",
-      "item_level": 10,
-      "level_requirement": 10,
-      "rarity": "Blue",
-      "stats": {
-        "min_atk": 12,
-        "max_atk": 22,
-        "dodge_rating": 7
-      },
-      "icon_filename": "weapon_blunt3.gif",
-      "sell_price": 240,
-      "generated": true,
-      "template_id": "weapon_blunt3"
-    },
-    "gen_w_014": {
-      "name": "Туфли ловкости",
-      "slot": "boots",
-      "item_level": 5,
-      "level_requirement": 5,
-      "rarity": "Grey",
-      "stats": {
-        "defense": 3,
-        "speed": 12
-      },
-      "icon_filename": "boots_shoes2.gif",
-      "sell_price": 30,
-      "generated": true,
-      "template_id": "boots_shoes2",
-      "item_type": "boots"
-    },
-    "gen_w_015": {
-      "name": "Жилет ниндзя [Blue]",
-      "slot": "body",
-      "item_level": 1,
-      "level_requirement": 1,
-      "rarity": "Blue",
-      "stats": {
-        "defense": 5,
-        "max_hp": 15,
-        "hit_rating": 1
-      },
-      "icon_filename": "vest_ninja.png",
-      "sell_price": 100,
-      "generated": true,
-      "template_id": "vest_ninja",
-      "item_type": "armor"
-    },
-    "gen_w_016": {
-      "name": "Булава новичка [Blue]",
-      "slot": "weapon",
-      "item_level": 5,
-      "level_requirement": 5,
-      "rarity": "Blue",
-      "stats": {
-        "min_atk": 7,
-        "max_atk": 13,
-        "block_pct": 1
-      },
-      "icon_filename": "weapon_blunt2.gif",
-      "sell_price": 140,
-      "generated": true,
-      "template_id": "weapon_blunt2"
-    }
-  },
-  "gen_w_counter": 16,
-  "_str_accum": 15.999999999999996,
-  "_agi_accum": 23.500000000000007,
-  "_sta_accum": 15.0,
+  "generated_weapons": {},
+  "gen_w_counter": 18,
+  "_str_accum": 11.4,
+  "_agi_accum": 10.4,
+  "_sta_accum": 10.9,
   "slot_next_roll_ts": null,
   "outfit_instances": {},
-  "_outfit_inst_counter": 0,
+  "_outfit_inst_counter": 1,
   "wardrobe": [
     null,
     null,
@@ -1771,8 +1460,18 @@
     null
   ],
   "active_buffs": [],
-  "window_positions": {},
+  "window_positions": {
+    "synth": [
+      150,
+      229
+    ],
+    "inventory": [
+      342,
+      99
+    ]
+  },
   "synth_test_grant_v160": true,
+  "suit14_grant_v206": true,
   "story_quests_active": [],
   "story_quests_goal_done": [],
   "story_quests_completed": [],

@@ -24,7 +24,6 @@ EXTRACTED_DIR: Path = ASSETS_DIR / "extracted"
 AVATAR_DIR: Path = ASSETS_DIR / "icons" / "avatar"
 SKILL_ICON_DIR: Path = ASSETS_DIR / "icons" / "skill"
 GEM_ICON_DIR: Path = ASSETS_DIR / "icons" / "gems"
-PEOPLEPOSE_DIR: Path = ASSETS_DIR / "sprites" / "peoplepose"
 FONTS_DIR: Path = PROJECT_ROOT / "fonts"
 
 # ---------------------------------------------------------------------------
@@ -46,8 +45,6 @@ WINDOW_TITLE: str = "Pockie RPG"
 # которые не впишутся, будем переделывать отдельно. Боевое окно — 60%
 # от размера ЭКРАНА (монитора), вокруг блюр.
 FRAMELESS_ENABLED: bool = True
-FULLSCREEN_ENABLED: bool = False
-WINDOW_MAXIMIZED: bool = False  # legacy
 # Stage 139.3 — масштаб боевого окна (доля размера монитора).
 BATTLE_WINDOW_SCALE: float = 0.60
 # Stage 166 — затемнение фона ВОКРУГ боевого окна (запрос пользователя:
@@ -95,8 +92,6 @@ INV_TOP_PANEL_GRAD_STEPS: int = 32
 # 125% без DPI-awareness) держат legacy-путь + MODAL_SCALE=1.0 (один
 # растяг — см. выше), т.к. _su()/хиттест требуют целочисленного множителя.
 UI_SCALE: float = 2.0
-SCREEN_WIDTH_UI: int = int(SCREEN_WIDTH * UI_SCALE)   # 2560
-SCREEN_HEIGHT_UI: int = int(SCREEN_HEIGHT * UI_SCALE)  # 1440
 
 
 def compute_ui_scale(mon_w: int, mon_h: int) -> float:
@@ -128,8 +123,8 @@ NATIVE_MODAL_REGISTRY: set[str] = {
     "inventory", "forge", "map", "synth", "wardrobe", "titles", "shop",
     "battle",
 }
-# Клавиша переключения fullscreen (pygame key code, F11).
-FULLSCREEN_TOGGLE_KEY: int = 294  # pygame.K_F11
+# Клавиша переключения fullscreen (pygame key code, F11) — Stage 204: константа
+# FULLSCREEN_TOGGLE_KEY удалена (0 импортов; F11-хоткей живёт в pygame_ui).
 # Stage 165 — фон боя/модалок БОЛЬШЕ НЕ БЛУРИТСЯ и не затемняется (запрос
 # пользователя: «чтобы ничего не менялось и только окно появлялось как Карта
 # мира/магазин»). Боевой фон = резкий снапшот сцены входа (_battle_bg_snapshot);
@@ -182,7 +177,6 @@ MP_BAR_W: int = 380
 HP_BAR_H: int = 18
 MP_BAR_H: int = 9                # Stage 4: reduced by 10% (was 10)
 BAR_GAP: int = 4
-BAR_PADDING: int = 3
 # Stage 134 — mirrored enemy HUD: fixed bar X (invariant: does NOT depend on name width).
 ENEMY_BAR_RIGHT_MARGIN: int = 16
 BAR_NAME_GAP: int = 12
@@ -214,8 +208,8 @@ BAR_SHINE_BAND_ALPHA: int = 55       # пик альфы бэнда
 
 # === Stage 200 — HUD_THEME: цвета HUD-текста/подложек в одном словаре =======
 # Единая точка правды для оформления «текстовых зон» боя: подложки имён,
-# рамки, цвета текста, fade. Константы-дубликаты ниже (TEXT_NAME и т.п.)
-# остаются для обратной совместимости старых импортов.
+# рамки, цвета текста, fade. Stage 204 — константы-дубликаты (TEXT_NAME и т.п.)
+# удалены (0 импортов вне HUD_THEME).
 HUD_THEME: dict[str, tuple[int, ...] | float] = {
     # Подложка имени+уровня над полосками (Stage 199)
     "name_plate_bg": (10, 10, 12),        # тёмная плашка (рисуется с alpha)
@@ -305,7 +299,6 @@ VS_GOLD_DARK: tuple[int, int, int] = (161, 98, 7)          # yellow-700
 TEXT_WHITE: tuple[int, int, int] = (244, 244, 245)        # zinc-100
 TEXT_YELLOW: tuple[int, int, int] = (250, 204, 21)        # yellow-400
 TEXT_DIM: tuple[int, int, int] = (161, 161, 170)           # zinc-400
-TEXT_NAME: tuple[int, int, int] = (255, 255, 255)
 
 # ---------------------------------------------------------------------------
 # MAP (Location 1)
@@ -343,8 +336,6 @@ BUTTON_BORDER: tuple[int, int, int] = (146, 52, 52)      # soft red edge
 BUTTON_BORDER_HOVER: tuple[int, int, int] = (226, 96, 96)
 BUTTON_TEXT: tuple[int, int, int] = (250, 232, 232)      # warm off-white
 BUTTON_TEXT_HOVER: tuple[int, int, int] = (255, 255, 255)
-BUTTON_W: int = 180
-BUTTON_H: int = 44                # touch-friendly (≥44px per UI rule)
 
 # Combat log (bottom)
 LOG_BAR_H: int = 36
@@ -365,8 +356,8 @@ BANNER_H: int = 234  # was full field height (SCREEN_HEIGHT - HUD_HEIGHT = 634),
 # ---------------------------------------------------------------------------
 
 IDLE_FPS: int = 8                 # 8 frames per second (per §8.3)
-BREATHING_AMP: int = 3            # ±3 px vertical sine wave (per §8.3)
-BREATHING_PERIOD: float = 2.0     # 2-second cycle
+# Stage 204 — BREATHING_AMP/BREATHING_PERIOD удалены (0 использований:
+# программное дыхание снято — движение в кадрах SWF, IdleAnimator.get_breathing_offset удалён).
 
 # Per-action frame rates (Stage 4 — extracted from user-provided SWFs).
 # Attack faster, death slower, run cycles quickly.
@@ -509,23 +500,48 @@ ENEMY_ACTION_NAME_MAP: dict[str, str] = {
     "death": "death_fall",
 }
 
-# Map generic action names → Ichigo action names (1:1 for Ichigo).
-ICHIGO_ACTION_NAME_MAP: dict[str, str] = {
-    "idle": "idle",
-    "attack": "attack",
-    "run": "run",
-    "hit": "hit",
-    "death": "death",
+# ---------------------------------------------------------------------------
+# CLOTH14 — КОСТЮМ ИГРОКА (Stage 205 — user-provided SWFs)
+# ---------------------------------------------------------------------------
+# Первый альтернативный скин игрока: анимации переключаются надетым костюмом
+# (OUTFITS_DB["suit_cloth14"]["motion_skin"] = "cloth14" → PLAYER_MOTION_SKINS).
+#
+# Source SWFs (motion_0_14_<id>_role.s118.swf) → action id = суффикс имени:
+#   motion_0_14_998_role.s118.swf  → cloth14/idle    (8 кадров)
+#   motion_0_14_52_role.s118.swf   → cloth14/attack  (11 кадров)
+#   motion_0_14_55_role.s118.swf   → cloth14/run     (4 кадра)
+#   motion_0_14_63_role.s118.swf   → cloth14/hit     (7 кадров)
+#   motion_0_14_100_role.s118.swf  → cloth14/death   (2 кадра)
+#
+# Экстракция: JPEXS FFDec 22.0.2 `-export sprite` (кадры в единых баундах
+# экшена, прозрачный фон, hold-дубли таймлайна SWF сохранены — конвенция
+# ichigo/black_samurai). Отличие от ichigo: кадры ПРЕДВАРИТЕЛЬНО ОТЗЕРКАЛЕНЫ
+# (исходник смотрит ВЛЕВО, костюм игрока должен смотреть ВПРАВО) — поэтому
+# INTRINSIC_FACING = RIGHT, runtime-флип не нужен (needs_flip_for_player=False).
+
+CLOTH14_ACTIONS: dict[int, dict[str, str]] = {
+    998: {"folder": "cloth14/idle",   "name": "idle"},
+    52:  {"folder": "cloth14/attack", "name": "attack"},
+    55:  {"folder": "cloth14/run",    "name": "run"},
+    63:  {"folder": "cloth14/hit",    "name": "hit"},
+    100: {"folder": "cloth14/death",  "name": "death"},
+}
+
+CLOTH14_ACTION_BY_NAME: dict[str, int] = {
+    info["name"]: action_id for action_id, info in CLOTH14_ACTIONS.items()
+}
+
+# Stage 205 — сеты анимаций игрока (action name → motion folder).
+# Ключ = motion_skin из OUTFITS_DB; отсутствие ключа в надетом костюме
+# (или skin_actions=None у аниматора) = классический Ичиго.
+PLAYER_MOTION_SKINS: dict[str, dict[str, str]] = {
+    "ichigo":  {info["name"]: info["folder"] for info in ICHIGO_ACTIONS.values()},
+    "cloth14": {info["name"]: info["folder"] for info in CLOTH14_ACTIONS.values()},
 }
 
 # ---------------------------------------------------------------------------
 # MOTION FOLDER MAPPING (per §10.9)
 # ---------------------------------------------------------------------------
-
-# Player (Ichigo) → default idle motion folder.
-SUIT_TO_MOTION: dict[str, str] = {
-    "i290001": "ichigo_idle",  # people_001 (Ichigo), idle action
-}
 
 # Enemy mobs → idle motion folder.
 # Stage 46 — all 12 mobs mapped by role_id:
@@ -552,8 +568,8 @@ MOB_TO_MOTION: dict[str, str] = {
     "flower_1": "flower/idle",
 }
 
-# Backgrounds: MAP and BATTLE states.
-MAP_BACKGROUND: str = "fightbg_2403.jpg"      # Location 1
+# Backgrounds: BATTLE state (Stage 204 — MAP_BACKGROUND удалён: фон локации
+# рендерится через ассеты карты, константа не читалась).
 BATTLE_BACKGROUND: str = "fightbg_2302.jpg"   # Location 2
 
 # ---------------------------------------------------------------------------
@@ -712,8 +728,6 @@ WORLDMAP_PLAYER_CORE_COLOR: tuple[int, int, int] = (209, 250, 229)
 WORLDMAP_PLAYER_PULSE_MS: int = 380
 WORLDMAP_PLAYER_PULSE_PHASE: float = 0.0
 WORLDMAP_PLAYER_GLOW_ALPHA: int = 140
-# Stage 136 — fade-in модалки карты (сек; 0 = мгновенно).
-WORLDMAP_FADE_SEC: float = MODAL_FADE_SEC  # Stage 152 — единая константа fade модалок
 
 # Stage 136 — реверс ZONE_LOCATION_MAP: MapLocation.value → референсная зона
 # (для метки игрока: CITY → Деревня Огня 12; LOC1-4 → первая зона тира).
@@ -751,7 +765,6 @@ ZONE_LOCATION_MAP: dict[int, int] = {
 # for the location dropdown selector to its left.
 MINIMAP_UI_RECT = (1146, 3, 110, 46)  # x, y, w, h — Stage 161: под панель 52px
 MINIMAP_CITY_BG = "city_bg.jpg"  # filename under assets/backgrounds/
-MINIMAP_MOBS_BG = "fightbg_2302.jpg"  # the existing MAP_BACKGROUND
 # Stage 91/92 — Las Noches (Tower hub) background.
 # Stage 92 — moved to las_noches/images/Enter.jpg per user request.
 LAS_NOCHES_BG = "las_noches/images/Enter.jpg"  # path under assets/backgrounds/
@@ -919,6 +932,13 @@ INTRINSIC_FACING: dict[str, SpriteFacing] = {
     "flower/hit":              SpriteFacing.LEFT,
     "flower/run":              SpriteFacing.LEFT,
     "flower/death":            SpriteFacing.LEFT,
+    # Cloth14 costume (Stage 205 — pre-flipped frames, face RIGHT natively;
+    # пользователь: «анимация повёрнута налево, а нужно направо — это игрок»).
+    "cloth14/idle":            SpriteFacing.RIGHT,
+    "cloth14/attack":          SpriteFacing.RIGHT,
+    "cloth14/run":             SpriteFacing.RIGHT,
+    "cloth14/hit":             SpriteFacing.RIGHT,
+    "cloth14/death":           SpriteFacing.RIGHT,
     # Las Noches Guardian (Stage 91 — static NPC, faces RIGHT toward player).
     "las_noches_guardian/idle": SpriteFacing.RIGHT,
 }
@@ -932,8 +952,8 @@ INTRINSIC_FACING: dict[str, SpriteFacing] = {
 # A mob's intrinsic facing determines whether a flip is needed:
 #   intrinsic RIGHT → flip=True  (after flip: faces LEFT ✓)
 #   intrinsic LEFT  → flip=False (already faces LEFT ✓)
-ENEMY_MUST_FACE_LEFT: bool = True
-PLAYER_MUST_FACE_RIGHT: bool = True
+# Stage 204 — константы ENEMY_MUST_FACE_LEFT/PLAYER_MUST_FACE_RIGHT удалены
+# (0 чтений: правило зашито в needs_flip_for_enemy/player).
 
 
 # ---------------------------------------------------------------------------
@@ -941,8 +961,7 @@ PLAYER_MUST_FACE_RIGHT: bool = True
 # ---------------------------------------------------------------------------
 
 SOUND_ENABLED: bool = False
-BGM_VOLUME: float = 0.0
-SFX_VOLUME: float = 0.0
+# Stage 204 — BGM_VOLUME/SFX_VOLUME удалены (звук не реализован, 0 чтений).
 
 # ---------------------------------------------------------------------------
 # BATTLE INTRO COUNTDOWN (Stage 4 — per user request)
@@ -955,7 +974,7 @@ COUNTDOWN_PHASES: list[tuple[str, float]] = [
     ("1", 1.0),       # 1 second showing "1"
     ("FIGHT!", 0.8),  # 0.8 second showing "FIGHT!"
 ]
-COUNTDOWN_TOTAL: float = sum(t for _, t in COUNTDOWN_PHASES)  # 3.8 seconds total
+# Stage 204 — COUNTDOWN_TOTAL удалён (0 чтений: фазы итерируются напрямую).
 
 # Countdown text rendering
 COUNTDOWN_FONT_SIZE: int = 96           # big bold text
@@ -969,7 +988,6 @@ COUNTDOWN_TEXT_SCALE_PER_PHASE: list[float] = [1.0, 1.05, 1.1, 1.3]  # progressi
 # Per §5.4 FightSystem: AtkTime is turn frequency in ms (base 1000).
 # Lower AtkTime = more turns = attacks more often.
 
-BASE_ATK_TIME: int = 1000              # ms — base turn frequency (per §5.4)
 # Stage 7: base speed +10% per user request — TURN_EVENT_DELAY reduced from
 # 1.2 to 1.08 seconds (1.2 * 0.9). Speed buttons (x2/x3/x4) further divide by
 # the speed multiplier at runtime (see PygameUI._update_combat_replay).
@@ -1004,10 +1022,9 @@ EVENT_DELAY_CANT_MOVE: float = 0.8      # frozen/skip — quick (just shows ice 
 EVENT_DELAY_EXTRA_TURN: float = 0.6     # extra turn — quick (Lightning Step)
 EVENT_DELAY_DOT: float = 0.8             # poison/cloud tick — quick (small effect)
 EVENT_DELAY_SHIELD: float = 0.6         # shield applied — quick (buff flash)
-LUNGE_DURATION: float = 0.6           # seconds — attack lunge (per §8.7)
-LUNGE_DISTANCE: int = 280             # px — lunge toward opponent (per §8.7)
 HIT_REACTION_DURATION: float = 0.4    # seconds — hit flash (per §8.4 Q28)
-DEATH_FREEZE_DURATION: float = 1.5    # seconds — freeze on last frame after death
+# Stage 204 — LUNGE_DURATION/LUNGE_DISTANCE/DEATH_FREEZE_DURATION удалены
+# (0 чтений: тайминги атаки/смерти живут в AttackSequence).
 
 # Stage 70 — HP/MP LERP SPEED tied to TURN_EVENT_DELAY.
 # The lerp factor `dt * HP_LERP_SPEED` must be high enough that the displayed
@@ -1415,11 +1432,8 @@ STAT_LABEL_RU: dict[str, str] = {
 # so the main source of power is equipment/gems/enchants.
 LEVEL_UP_HP: int = 50          # +50 max HP per level
 LEVEL_UP_MP: int = 10          # +10 max MP per level
-LEVEL_UP_MIN_ATK: float = 1.5  # +1.5 min attack per level (base, before STR scaling)
-LEVEL_UP_MAX_ATK: float = 2.5  # +2.5 max attack per level (base, before STR scaling)
-LEVEL_UP_STR: float = 0.3      # +0.3 STR per level (very little)
-LEVEL_UP_AGI: float = 0.4      # +0.4 AGI per level (very little)
-LEVEL_UP_STA: float = 0.25     # +0.25 STA per level (very little)
+# Stage 204 — LEVEL_UP_MIN/MAX_ATK/STR/AGI/STA удалены (0 чтений: рост атаки
+# и первичек считается в state.recalc_stats из собственных таблиц).
 
 # === Stage 170 — магические числа из state.py вынесены в config (значения
 # НЕ менялись — только перенос; см. MEMORY §«Магические числа») ===
@@ -1465,10 +1479,10 @@ CHAR_SHEET_W: int = 279  # Stage 98 — was 310, reduced 10% per user request.
 # (константа CHAR_SHEET_H_ENEMY удалена вместе с раздельной таблицей).
 CHAR_SHEET_H: int = 420  # Stage 179 — +40px: у игрока добавлены 2 строки первичных статов (Сила/Ловкость/Выносливость)
 CHAR_SHEET_BG: tuple[int, int, int] = (24, 24, 27)         # zinc-900
-CHAR_SHEET_BORDER: tuple[int, int, int] = (82, 82, 91)    # zinc-600
 CHAR_SHEET_ACCENT: tuple[int, int, int] = (234, 179, 8)    # gold
 CHAR_SHEET_ANIM_DURATION: float = 0.3    # seconds — slide-in from edge (Stage 5)
-CHAR_SHEET_PADDING: int = 24
+# Stage 204 — CHAR_SHEET_BORDER/CHAR_SHEET_PADDING удалены (0 чтений:
+# рамка/паддинг окна берутся из UI_THEME/MODAL_*).
 # Margin from screen edge when char sheet is fully slid in (Stage 5).
 CHAR_SHEET_EDGE_MARGIN: int = 0  # Stage 98 — was 20, shifted to edge per user request.
 
@@ -1573,10 +1587,6 @@ PARTICLE_BLOOD_COLORS: tuple[tuple[int, int, int], ...] = (
 
 # --- Stage 71/72 — WORLD BOSS constants ---
 WORLD_BOSS_MAX_HP: int = 50000
-WORLD_BOSS_DAILY_ATTEMPTS: int = 3
-WORLD_BOSS_HP_BAR_W: int = 800       # px — global HP bar width on map
-WORLD_BOSS_HP_BAR_H: int = 24        # px — global HP bar height
-WORLD_BOSS_SPRITE_SCALE: float = 2.0  # boss sprite is 2x bigger than normal mobs
 
 # --- Stage 89 — TOWER MODE constants ---
 # Per TOWER_MODE_IMPLEMENTATION.md §9. Tower is a modal on MAP (not a
@@ -1586,11 +1596,8 @@ TOWER_MAX_FLOOR: int = 100
 # Stage 134 — legacy constants TOWER_MAX_ATTEMPTS / TOWER_ATTEMPT_REGEN_SECONDS
 # deleted together with the tower-attempt fields they served.
 TOWER_DEFAULT_START_FLOOR: int = 1
-TOWER_MAP_BACKGROUND: str = "city_bg.jpg"
-# Modal layout (1280×720 viewport).
-TOWER_MODAL_W: int = 720
-TOWER_MODAL_H: int = 560
-TOWER_FLOOR_ROW_H: int = 36
+# Stage 204 — TOWER_MAP_BACKGROUND/TOWER_MODAL_W/H/TOWER_FLOOR_ROW_H удалены
+# (0 чтений: модалка башни рендерится из собственных layout-констант render_tower).
 TOWER_FLOORS_VISIBLE: int = 11           # rows visible before scroll
 TOWER_SHOP_MODAL_W: int = 640
 TOWER_SHOP_MODAL_H: int = 520
@@ -1599,7 +1606,6 @@ TOWER_BG: tuple[int, int, int] = (24, 24, 27)           # zinc-900
 TOWER_BORDER: tuple[int, int, int] = (234, 179, 8)      # gold
 TOWER_ACCENT: tuple[int, int, int] = (52, 211, 153)     # emerald (current floor)
 TOWER_BOSS_COLOR: tuple[int, int, int] = (234, 179, 8)  # gold (boss floor)
-TOWER_LOCKED_COLOR: tuple[int, int, int] = (63, 63, 70)  # zinc-700 (locked)
 TOWER_COMPLETED_COLOR: tuple[int, int, int] = (80, 220, 100)  # green (completed)
 TOWER_SHARD_COLOR: tuple[int, int, int] = (167, 139, 250)     # violet (shards)
 
@@ -1693,7 +1699,6 @@ BUFF_SYNTH_RECIPES: dict[str, tuple[str, int]] = {
 WORLD_BOSS_MAP_SPRITE_X: int = 900    # px — boss sprite X on map (right of center 640)
 
 # World Boss rank thresholds (by total damage dealt).
-WORLD_BOSS_RANK_F: int = 0       # < 500
 WORLD_BOSS_RANK_B: int = 500     # 500-1499
 WORLD_BOSS_RANK_A: int = 1500    # 1500-2999
 WORLD_BOSS_RANK_S: int = 3000    # 3000-4999
@@ -1758,7 +1763,7 @@ ITEMS_PER_PAGE: int = 128  # Stage 167 — НЕ менять на 96: стары
 # (16-колоночная сетка) держат предметы в слотах 96-127, урезание списка
 # их ТЕРЯЛО бы. Вместимость страницы гейтится визуально (_can_visually_fit
 # считает INV_COLS × INV_MAX_ROWS).
-INVENTORY_PAGE_COUNT: int = 10
+# Stage 204 — INVENTORY_PAGE_COUNT удалён (0 чтений: страницы = INVENTORY_PAGE_KEYS).
 INVENTORY_PAGE_KEYS: tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 INV_COLS: int = 12        # Stage 167 — было 16 (запрос: сузить окно инвентаря)
 INV_MAX_ROWS: int = 8     # Stage 145 — мини-ряды (16×8 = 128 мини)
@@ -1793,7 +1798,7 @@ def item_span(item: dict) -> tuple[int, int]:
     return (2, 2)
 
 
-WEAPON_SPAN: int = 2  # legacy (grid span); use item_span()
+# Stage 204 — WEAPON_SPAN удалён (0 чтений: используйте item_span()).
 
 # --- Stage 47 — FORGE (Кузница) constants ---
 MAX_ENCHANT: int = 20                    # max enchant level per item
@@ -1894,7 +1899,6 @@ MAP_MP_BAR_H: int = 10
 
 # --- Stage 34 — Bottom UI bar (skills + inventory icons) ---
 BOTTOM_BAR_HEIGHT: int = 56
-BOTTOM_BAR_BG: tuple[int, int, int] = (24, 24, 27)           # zinc-900
 BOTTOM_BAR_BORDER: tuple[int, int, int] = (63, 63, 70)      # zinc-700
 BOTTOM_BAR_ICON_SIZE: int = 40
 BOTTOM_BAR_ICON_GAP: int = 16
@@ -1910,7 +1914,7 @@ HP_PULSE_RATIO: float = 0.25           # trigger pulse when HP < 25% of max
 HP_PULSE_MIN: float = 0.55             # min brightness multiplier (darker phase)
 HP_PULSE_MAX: float = 1.0              # max brightness multiplier (brighter phase)
 MODAL_CONTENT_PADDING: int = 16        # standard content padding inside modals (p-4)
-MODAL_GRID_PADDING: int = 8             # dense grid cells padding (p-2)
+# Stage 204 — MODAL_GRID_PADDING удалён (0 чтений).
 # Hover state for clickable cards (mob card on MAP screen).
 MAP_CARD_HOVER_BG: tuple[int, int, int] = (39, 39, 42)      # zinc-800 (lighter than zinc-900)
 MAP_CARD_HOVER_BORDER: tuple[int, int, int] = (234, 179, 8) # gold border on hover
@@ -1924,8 +1928,8 @@ MAP_CARD_HOVER_GLOW_ALPHA: int = 90
 # свечения, фон и рамка карточки мобов интерполируются за это время
 # (раньше эффект включался/выключался мгновенно — «слишком резко»).
 MAP_CARD_HOVER_SEC: float = 0.14
-# Legacy hover-«тень» — ещё используется магазином и misc-модалками (Stage 87).
-MAP_CARD_HOVER_SHADOW: tuple[int, int, int] = (0, 0, 0)
+# Legacy hover-«тень» — используется магазином и misc-модалками (Stage 87);
+# Stage 204 — MAP_CARD_HOVER_SHADOW удалён (0 чтений; цвет тени инлайн у потребителей).
 MAP_CARD_HOVER_SHADOW_INSET: int = 4
 
 # --- Endgame rewards window (Stage 8 — replaces 2.0s auto-return) ---
@@ -1995,7 +1999,6 @@ SKILLS_GRID_H: int = SKILLS_GRID_ROWS * SKILLS_SLOT_SIZE + (SKILLS_GRID_ROWS - 1
 SKILLS_SLOT_EMPTY_BG: tuple[int, int, int] = (39, 39, 42)         # zinc-800 (empty)
 SKILLS_SLOT_EMPTY_BORDER: tuple[int, int, int] = (82, 82, 91)    # zinc-600 (empty border)
 SKILLS_SLOT_ACTIVE_BG: tuple[int, int, int] = (16, 185, 129)     # emerald-500 (active skill)
-SKILLS_SLOT_ACTIVE_FG: tuple[int, int, int] = (255, 255, 255)    # white "S" letter
 SKILLS_SLOT_LABEL_COLOR: tuple[int, int, int] = (234, 179, 8)   # gold-500 ("Навыки" label)
 # Stage 14 — INACTIVE skill slot colors (skill is in the deck but currently
 # disabled via the toggle). Reuses zinc-800 bg + zinc-600 border so the
@@ -2006,10 +2009,8 @@ SKILLS_SLOT_INACTIVE_BORDER: tuple[int, int, int] = (82, 82, 91)     # zinc-600 
 SKILLS_SLOT_INACTIVE_ICON_ALPHA: int = 128                            # 50% opacity
 
 # MAP skills button (circular, bottom-right).
-SKILLS_BTN_RADIUS: int = 40       # 80×80 px circle (radius 40)
-SKILLS_BTN_BG: tuple[int, int, int] = (16, 185, 129)            # emerald-500
-SKILLS_BTN_BG_HOVER: tuple[int, int, int] = (52, 211, 153)      # emerald-400
-SKILLS_BTN_FG: tuple[int, int, int] = (255, 255, 255)           # white "Н" letter
+# Stage 204 — SKILLS_BTN_RADIUS/BG/BG_HOVER/FG удалены (0 чтений: кнопка
+# «Навыки» рисуется из MAP/bottom-bar констант).
 
 # Skills modal window (centered, smaller than char sheet).
 # Stage 10.1: SKILLS_MODAL_H bumped from 200 → 280 (+80 px) to add a 70 px
@@ -2041,10 +2042,8 @@ SKILLS_MODAL_BG: tuple[int, int, int] = (24, 24, 27)            # zinc-900
 SKILLS_MODAL_BORDER: tuple[int, int, int] = (234, 179, 8)       # gold-500
 SKILLS_MODAL_RADIUS: int = 12
 SKILLS_MODAL_TITLE_COLOR: tuple[int, int, int] = (234, 179, 8) # gold-500
-SKILLS_MODAL_CLOSE_BG: tuple[int, int, int] = (220, 38, 38)    # red-600
-SKILLS_MODAL_CLOSE_BG_HOVER: tuple[int, int, int] = (248, 113, 113)  # red-400
-SKILLS_MODAL_CLOSE_FG: tuple[int, int, int] = (255, 255, 255)
-SKILLS_MODAL_CLOSE_H: int = 36
+# Stage 204 — SKILLS_MODAL_CLOSE_* удалены (0 чтений: Х-кнопки рисует
+# общий _draw_close_x_square на UI_THEME).
 
 
 # ---------------------------------------------------------------------------
@@ -2059,9 +2058,8 @@ SKILLS_MODAL_CLOSE_H: int = 36
 
 DEBUFF_ICON_SIZE: int = 32           # Size of each debuff icon (px, square)
 DEBUFF_ICON_GAP: int = 4             # Horizontal gap between icons when multiple (px)
-DEBUFF_ICON_Y_OFFSET: int = -120
-DEBUFF_ICON_CENTERED: bool = True    # True = center horizontally on fighter x. False = left-align at fighter x.
-DEBUFF_ICON_LEFT_PADDING: int = 0    # When NOT centered, offset from fighter x (px)
+# Stage 204 — DEBUFF_ICON_Y_OFFSET/CENTERED/LEFT_PADDING удалены (0 чтений:
+# иконки статусов рендерятся по _render_hud_status_icons).
 
 
 # ---------------------------------------------------------------------------
@@ -2139,31 +2137,10 @@ def _build_skill_config_from_registry() -> "dict[int, dict]":
 SKILL_CONFIG: dict[int, dict] = _build_skill_config_from_registry()
 
 
-def get_skill_config(skill_id: int) -> dict | None:
-    """Get skill configuration by skill_id. Returns None if not configured.
-
-    Stage 10.1 — convenience accessor for the centralized SKILL_CONFIG dict.
-    Stage 11 — SKILL_CONFIG is now derived from SKILL_REGISTRY; this accessor
-    still returns the backward-compat dict shape.
-    """
-    return SKILL_CONFIG.get(skill_id)
-
-
-# Crystal Blade — keep individual constants as aliases for backward compat.
-# Stage 11 — these now read from SKILL_REGISTRY (via SKILL_CONFIG) so that
-# tuning is centralized in combat.skill_registry.SKILL_REGISTRY.
-CRYSTAL_BLADE_SKILL_ID: int = 12006
-CRYSTAL_BLADE_SKILL_NAME: str = SKILL_CONFIG[12006]["name"]
-CRYSTAL_BLADE_ROLE_ID: int = SKILL_CONFIG[12006]["role_id"]
-# Stage 10.2 — MP cost 35 (was 100). Per user spec: "стоимость 35 MP".
-CRYSTAL_BLADE_MP_COST: int = SKILL_CONFIG[12006]["mp_cost"]
-CRYSTAL_BLADE_TRIGGER_CHANCE: float = SKILL_CONFIG[12006]["trigger_chance"]
-# Stage 10.2 — freeze chance 0.40 (was 0.60). Per user spec: "с шансом 40%".
-CRYSTAL_BLADE_FREEZE_CHANCE: float = SKILL_CONFIG[12006]["freeze_chance"]
-# Stage 10.1: freeze duration bumped from 1 → 2 turns (read from SKILL_CONFIG).
+# Crystal Blade — Stage 204: алиасы-константы CRYSTAL_BLADE_* удалены (0 чтений:
+# боевой движок читает SKILL_REGISTRY/skill-объекты; осталась только
+# CRYSTAL_BLADE_FREEZE_DURATION — дефолт заморозки для fighter.py).
 CRYSTAL_BLADE_FREEZE_DURATION: int = SKILL_CONFIG[12006]["freeze_duration"]
-# Stage 10.2 — NEW: damage multiplier (base damage × 1.4 per user spec).
-CRYSTAL_BLADE_DAMAGE_MULTIPLIER: float = SKILL_CONFIG[12006]["damage_multiplier"]
 
 # Ice block overlay animation (Stage 10 — assets/extracted/ice_block/).
 # 20 PNG frames at 163×136 each. Cycled at 8 FPS while active.
@@ -2231,63 +2208,26 @@ POISON_OVERLAY_RENDER_H: int = 180
 # on the TARGET during the cast (projectile visual). Only plays once per cast
 # (not looping — the fireball flies once and is gone).
 FIREBALL_OVERLAY_FOLDER: str = "effects/fireball"
-FIREBALL_OVERLAY_FPS: int = 20
-FIREBALL_OVERLAY_RENDER_W: int = 360  # scaled down (was 722)
-FIREBALL_OVERLAY_RENDER_H: int = 180  # scaled down (was 361)
+# Stage 204 — FIREBALL_OVERLAY_FPS/RENDER_W/RENDER_H удалены (0 чтений:
+# полёт файрбола играет ProjectileEffect со своими параметрами cast-секции).
 
 
 # ---------------------------------------------------------------------------
-# STAGE 14 — CAST EFFECT ANIMATION PARAMETERS (one-shot, per-skill)
+# STAGE 14/189 — CAST EFFECT (one-shot) параметры файрбола — читает
+# combat_replay (старт полёта, размер, FPS). Параметры остальных скиллов
+# (storm cloud/shield dome/poison) удалены в Stage 204 — словарь
+# _CAST_EFFECT_PARAMS в effects.py был мёртвым (0 чтений); они же были
+# единственными читателями CAST_STORM_CLOUD_*/CAST_SHIELD_DOME_*/CAST_POISON_*.
 # ---------------------------------------------------------------------------
-# When a skill with a non-empty `effect_folder` triggers, the UI plays a
-# ONE-SHOT cast animation (CastEffect class) at a skill-specific position
-# + size + FPS. These differ from the LOOPING effect overlay constants
-# above (which are rendered while a status is ACTIVE — e.g., the shield
-# dome stays around the caster while the shield status persists).
-#
-# Cast effect: a single play-through of the folder's frames, then the
-# overlay self-deactivates. Render position + size is skill-specific.
-#
-# Position convention: (target_x, target_y) is the CENTER of the cast
-# effect's blit rect (CastEffect centers on this point). For ranged skills
-# the position is at the TARGET fighter; for self-buff skills the position
-# is at the ATTACKER (caster). The y offset is relative to SPRITE_BASE_Y
-# (the ground line) — negative values move UP on screen.
-#
-# To add a new skill's cast effect: add an entry to the
-# CAST_EFFECT_PARAMS dict below. Keyed by skill_id.
-
 # Position offsets from SPRITE_BASE_Y (negative = up on screen).
 CAST_FIREBALL_Y_OFFSET: int = -100     # fireball lands at chest height on target
 # Horizontal offset of the fireball's spawn point in FRONT of the caster
 # (toward the enemy). Player casters add it (+X), enemy casters subtract it (-X),
 # so the fireball appears ahead of the character instead of on top of it.
 CAST_FIREBALL_CAST_OFFSET_X: int = 120   # fireball spawns 120px ahead of the caster (Stage 170: комментарий синхронизирован со значением)
-CAST_STORM_CLOUD_Y_OFFSET: int = -200  # storm cloud hovers high above target
-CAST_SHIELD_DOME_Y_OFFSET: int = -80   # shield dome centered on caster torso
-CAST_POISON_Y_OFFSET: int = -80         # poison cloud covers target torso
-
-# Cast effect render sizes (larger than the looping status overlays for
-# more dramatic one-shot feedback).
 CAST_FIREBALL_W: int = 300
 CAST_FIREBALL_H: int = 200
-CAST_STORM_CLOUD_W: int = 200
-CAST_STORM_CLOUD_H: int = 100
-CAST_SHIELD_DOME_W: int = 250
-CAST_SHIELD_DOME_H: int = 300
-CAST_POISON_W: int = 150
-CAST_POISON_H: int = 200
-
-# Cast effect FPS (frame rate of the one-shot animation). Use the same FPS
-# as the corresponding looping overlay for consistency (the source PNGs
-# were authored at this rate).
-# Stage v132.1 — slowed the fireball cast 20 → 15 FPS so the projectile
-# starts sooner (paired with CAST_HOLD_FRAMES=3) and spends more time in
-# flight toward the target for a clearer "thrown" read.
 CAST_FIREBALL_FPS: int = 15
-CAST_STORM_CLOUD_FPS: int = 6
-CAST_SHIELD_DOME_FPS: int = 8
-CAST_POISON_FPS: int = 10
 
 
 # ---------------------------------------------------------------------------
@@ -2374,7 +2314,6 @@ if str(_SRC_DIR) not in sys.path:
 from pockie_rpg.combat.formulas import (  # noqa: E402,F401
     BASE_HIT_CHANCE,
     BLOCK_DAMAGE_MULTIPLIER,
-    CRIT_BASE_CHANCE_PCT,
     CRIT_BASE_DAMAGE_PCT,
     CRIT_CHANCE_STEP,
     CRIT_DAMAGE_STEP,
@@ -2390,9 +2329,7 @@ from pockie_rpg.combat.formulas import (  # noqa: E402,F401
     DEFENSE_BREAK_CONSTANT,
     HIT_CAP_PCT,
     HIT_FLOOR_PCT,
-    RATING_PCT_DIVISOR,
     RATING_PCT_STEP,
-    RATING_STAT_KEYS,
     SPEED_BASE_FLOAT,
     STA_TO_DEF,
     STA_TO_HP,
@@ -2416,7 +2353,6 @@ from pockie_rpg.combat.formulas import (  # noqa: E402,F401
     rating_to_block_chance,
     rating_to_crit_chance,
     rating_to_crit_damage,
-    rating_to_percent,
     rating_to_tough_chance_reduction,
     rating_to_tough_damage_reduction,
 )

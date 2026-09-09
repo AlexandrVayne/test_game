@@ -5,7 +5,272 @@
 > история stage'ей (ЕДИНСТВЕННЫЙ таймлайн — нигде не дублируется), готчи,
 > баги, константы, реестр идей, TODO.
 
-## Текущая версия: **v202.1**
+## Текущая версия: **v205.0**
+
+**Stage 209 — статы Абарая (данные пользователя) + база качества костюмов
+(4 тира) + RUN_BACK «смотрит в сторону куда бежит» + F9-инвариант и репорт:**
+- **Статы suit_cloth14** (официальные данные пользователя, не выдуманы):
+  Сила 26 (+1.3), Ловкость 6 (+0.3), Выносливость 16 (+0.8); BMV-пороги
+  10 силы / 21 ловкости / 12 выносливости (bmv_price + legacy-алиасы);
+  growth.max: 1.7/0.5/1.1. Было 15/8/12, bmv 12/30/20, growth 1.4/0.4/0.9.
+- **Качество костюмов — база на 15+ будущих** (запрос: «будут еще 15+
+  костюмов разного качества»): 4 тира как у предметов — Grey/Blue/Purple/
+  Orange; палитры `COSTUME_QUALITY_ORDER/RU/BG/RGB` в config.py; поле
+  `"quality"` в OUTFITS_DB + EQUIPMENT_DB (нет поля = Grey). Красится
+  автоматически: фон ячейки за иконкой (`_blit_gear_icon`), рамка/полоса
+  тултипа + заголовок + тир RU-именем в строке «Треб. уровень»
+  (`_render_outfit_tooltip`), имя в гардеробе (`_render_wardrobe_modal`).
+  Тиры демо-костюмов: ichigo/cloth14 Grey, samurai_tank Blue,
+  ninja_evasion Purple, ogre_brute Orange. Инстансы синтеза наследуют
+  quality модели (dict(model) в get_item_definition).
+- **ФЕЙСИНГ RUN_BACK — пользователь вернул диагноз**: «Я ошибся — в
+  версии 204.1 анимация уже была нормально, а теперь когда Абараи
+  движется домой, он смотрит на врага (Баг) — должен смотреть в сторону
+  куда бежит». ФИКС: универсальная инверсия `seq.flip = not seq.flip`
+  на ATTACK→RUN_BACK ВОССТАНОВЛЕНА для всех (Stage 208 спец-кейс
+  «скин flip=False» удалён) — боец бежит домой ЛИЦОМ ПО НАПРАВЛЕНИЮ
+  движения (P → LEFT, E → RIGHT). База скина по-прежнему без зеркала
+  (set_action/base_flip/spawn → False, ассеты смотрят ВПРАВО на врага).
+- **F9-ИНВАРИАНТ** (пункт 3 запроса): оверлей показывает НЕ только факт,
+  но и ОЖИДАНИЕ: `P: папка | flip=X | смотрит Y ✓ | ожид. Z (лицом к
+  врагу / бежит домой) | act=… N/M`; несоответствие — ВСЯ строка
+  КРАСНЫМ с ✗ (сверки в голове не нужно). Факт считается из
+  INTRINSIC_FACING ⊕ flip (`_facing_actual`), ожидание — `_facing_expected`
+  (P: RIGHT, E: LEFT; RUN_BACK — по движению).
+- **F9-КОПИПАСТ-РЕПОРТ** (пункт 4): каждое нажатие F9 сохраняет строки
+  оверлея в `data/facing_report.txt` (заголовок с датой; UTF-8) —
+  пользователь присылает текст, разбор за минуту без скриншотов.
+- **Верификация**: НОВЫЙ scripts/diag_stage209.py 51/51 (статы/качество/
+  проброс через get_item_definition вкл. outfit-инстанс; флип по фазам
+  RUN_BACK=True; expected/actual; инвариант ✓/✗; репорт-файл; 120 кадров).
+  Регресс: diag207 40/40 (ожидание RUN_BACK cloth14 → True), diag208
+  24/24 (обновлён: RUN_BACK skin → True), diag205 59/59, diag206 41/41
+  (стат-чек обновлён под 26/6/16), verify202 13/13, verify_battle_native
+  18/18, replay_flow 10/10, click_offset 0 dead, e2e/drag/ghost/battle_bg/
+  hidpi_smoke PASS; ruff 0; py_compile OK; bun lint чист.
+- RULES.md: П13 п.5 «БАЗА СКИНА БЕЗ ЗЕРКАЛА, RUN_BACK — ПО ДВИЖЕНИЮ
+  (Stage 209, финал)» + новый п.7 ИНВАРИАНТ ФЕЙСИНГА + п.8 верификация;
+  НОВЫЙ П17 «Костюмы: качество и добавление новых» (чек-лист добавления
+  костюма = только данные; статы ВСЕГДА от пользователя).
+- Витрина: pockie_rpg_v205.0.zip.
+
+## Предыдущая версия: v204.2
+
+**Stage 208 — «убери зеркаливание — ассеты уже правильные» + F9-фейсинг-
+оверлей: рантайм-зеркало скинов запрещено ПОЛНОСТЬЮ:**
+- **Симптом**: пользователь проверил ассеты cloth14 (все 5 экшенов смотрят
+  ВПРАВО — подтверждено визуальным просмотром кадров) но в игре Абараи
+  «опять не туда смотрит». Анализ: zip/код/ассеты идентичны репо,
+  needs_flip_for_player=False по всем папкам — единственное ОСТАВШЕЕСЯ
+  зеркало в рантайме — инверсия `seq.flip = not seq.flip` на фазе
+  RUN_BACK (бежит домой «разворотом»); плюс недоверие к цепочке
+  INTRINSIC_FACING после двух багов подряд.
+- **Решение (по прямому запросу пользователя)**: скины
+  (skin_actions задан) НЕ ЗЕРКАЛЯТСЯ В РАНТАЙМЕ ВООБЩЕ: `set_action` →
+  flip=False для всех экшенов; `base_flip` → False; RUN_BACK для скинов
+  НЕ инвертирует (бежит домой лицом к врагу — «Абараи всегда смотрит
+  направо»); `_spawn_player_animator` → False. Зеркало — ТОЛЬКО на
+  экстракции (RULES П13). Ичиго/враги — 1:1 (RUN_BACK-разворот остался).
+- **F9-фейсинг-оверлей** (просьба пользователя): строка на аниматор
+  `P:/E: папка | flip (зелёный False/красный True) | экшен кадр N/M` +
+  фаза активной seq; тумблер в любом состоянии; тест-панель переехала
+  F9 → F8 (подписи/комменты обновлены: render_test_panel, damage,
+  save_load, test_battle). Оверлей рисуется поверх всего рядом с F10-
+  панелью (левый верх), ClickRect'ов не добавляет.
+- **Верификация**: НОВЫЙ scripts/diag_stage208.py 24/24 (скин не флипается
+  НИГДЕ вкл. RUN_BACK; ichigo/враг 1:1; оверлей без аниматоров/в бою;
+  120 кадров с оверлеем). Полный комплект: diag207 40/40 (ожидание
+  RUN_BACK cloth14 обновлено под Stage 208), diag205 59/59, diag206
+  41/41, verify202 13/13, verify_battle_native 18/18, hidpi_smoke PASS,
+  ruff 0. Скриншоты /home/z/tmp_stage208/: Абараи лицом ВПРАВО на беге,
+  ударе и обратном беге; оверлей читается (cloth14/run flip=False).
+- Витрина: pockie_rpg_v204.2.zip.
+
+**Stage 207 — фикс фейсинга Абарая в атаке: «начинает бежать/бить и смотрит
+влево» — хардкод флипа атаки «игрок → True» разворачивал pre-flipped скин:
+- **Причина**: кадры cloth14 уже смотрят ВПРАВО (Stage 205 пре-флип,
+  INTRINSIC_FACING=RIGHT), idle при входе в бой брал флип из папки
+  (needs_flip_for_player → False ✓), но `combat_replay._start_attack_sequence`
+  жёстко задавал `initial_flip = True` (верно только для Ичиго — intrinsic
+  LEFT) и ЗАТИРАЛ правильный флип аниматора → на беге/атаке Абараи
+  разворачивался ВЛЕВО. Те же хардкоды в 2 местах `default_flip =
+  True if seq.is_player else False` (ranged DONE, RUN_BACK DONE).
+- **Фикс (единственный источник флипа — скин)**: НОВЫЙ метод
+  `IdleAnimator.base_flip(asset_manager)` — флип базовой позиции из
+  INTRINSIC_FACING папки скина (игрок → needs_flip_for_player, враг →
+  needs_flip_for_enemy); `combat_replay`: старт seq — флип после
+  `set_action("run"/"attack")` (аниматор сам вычисляет по папке), оба
+  DONE — `animator.base_flip()`. RUN_BACK по-прежнему инвертирует
+  (разворот «спиной домой» — визуальный разворот, корректен для обоих).
+- **Поведение 1:1**: ichigo (старт True, RUN_BACK False), самурай
+  (старт False, RUN_BACK True) — не изменились; cloth14 — все фазы лицом
+  ВПРАВО к врагу (RUN_BACK True = разворот домой).
+- **RULES П13 переработан** в полный конвейер анимаций с фейсинг-
+  протоколом: пользователь ВСЕГДА сообщает направление исходника →
+  зеркало ВСЕХ экшенов на этапе экстракции (PIL, lossless) → итог в
+  INTRINSIC_FACING каждой папки → флип только через base_flip
+  (хардкоды по роли ЗАПРЕЩЕНЫ). Гонч: alpha-mass эвристика обманывается
+  причёской/хвостом (Абараи «LEFT» при лице вправо).
+- **Верификация**: НОВЫЙ scripts/diag_stage207.py 40/40 — base_flip обоих
+  скинов+врага; флип по ВСЕМ фазам ближней атаки cloth14/ichigo/врага;
+  ranged DONE обоих скинов; смертельный удар HOLD→PARKED (победитель
+  лицом к врагу); 120 кадров регресс. Полный комплект: diag_stage205
+  59/59, diag_stage206 41/41, verify_stage202 13/13,
+  verify_battle_native 18/18, diag_replay_flow 10/10 (StubAnimator
+  дополнен полем flip/base_flip под Stage 207 API), click_offset 0 dead,
+  e2e/drag/ghost/battle_bg/hidpi_smoke ALL PASS; ruff 0.
+- **Визуально**: лист кадров через get_motion_sprite — cloth14 idle/run/
+  attack/hit с flip=False смотрят ВПРАВО (лицо справа, хвост слева);
+  flip=True (старый баг) — лицо слева. Скриншот /home/z/tmp_stage207/.
+- **Чистка доков**: удалены устаревшие battle_bug_report.md и
+  project_foundation_report.md (выводы в истории Stage'ей; отложенный
+  пункт аудита §1.2 п.5 остаётся в реестре идей); upload/ очищен полностью
+  (промт-доки реализованы, ассеты cloth14 интегрированы в assets/);
+  ссылка на battle_bug_report в комментарии combat_replay переформулирована.
+- Витрина: pockie_rpg_v204.1.zip.
+
+## Предыдущая версия: v204.0
+
+**Stage 206 — костюм cloth14 → «Ренджи АБАРАИ» (пользователь: НЕ Сакура):
+полная привязка облика к костюму — аватар/имя/поза/статы переключаются
+вместе с анимациями (и обратно):**
+- **Новые ассеты** (прозрачность уже в исходниках — фон не трогали):
+  `userface_0_14_role.gif` (82×81, HUD-аватар) → assets/icons/avatar/;
+  `people_013_pose.s110.png` (189×301) → assets/icons/character/
+  people_013_pose.png (спрайт в полный рост для инвентаря).
+- **Suit-запись i290014** (STARTER_SUITS): name «Ренджи Абараи», avatar
+  userface_0_14_role.gif, motion_folder cloth14/idle, НОВОЕ ПОЛЕ
+  `Suit.pose_filename` (дефолт people_002_pose.png — обратная совместимость).
+- **resolve_player_suit(player)** (roles_db, re-export через state): equipped_outfit
+  (вкл. outfit_inst_N) → OUTFITS_DB["suit_id"] → STARTER_SUITS; нет связи →
+  fallback player.suit_id. Заменила 8 копий `STARTER_SUITS.get(player.suit_id)`
+  (pygame_ui ×4, render_battle ×2, render_map, test_battle). Связки:
+  suit_cloth14→i290014, suit_ichigo→i290001; чужие костюмы (samurai_tank и
+  т.п.) без suit_id — классический Ичиго.
+- **Имя игрока от костюма**: плашка HUD боя (render_battle) и шапка
+  Character Sheet (render_skills_charsheet, только для игрока; враги —
+  role.name) показывают suit.name.
+- **Поза инвентаря от костюма**: `_char_pose_surface` берёт
+  suit.pose_filename; сырой кэш стал словарём `_char_pose_raws[filename]`,
+  scaled-кэш ключуется `(id(raw), w, h)` — смена костюма не подсовывает
+  чужой спрайт при тех же габаритах.
+- **Статы** (уже были от equipped_outfit, подтверждено): cloth14 переведён на
+  СИЛОВОЙ архетип strength_dps (Ренджи — силовой боец): base 15/8/12,
+  bmv_price 12/30/20, growth 1.4/0.4/0.9 — надел Абарая = другая сборка
+  (diag: min_atk 110→137, max_hp 460→540 при уровне 1; и обратно).
+- **Миграция сейва**: `suit14_grant_v206` (паттерн synth_test_grant_v160) —
+  старым сейвам разово выдаётся 2× suit_cloth14; новые получают из
+  starter_items() (флаг сразу True; повторных грантов нет — diag).
+- Верификация: НОВЫЙ scripts/diag_stage206.py 41/41 (ассеты, данные,
+  resolve: база/инстанс/fallback, миграция без дублей, статы туда-обратно,
+  рантайм: шпион get_avatar → userface_0_14_role.gif, 120 кадров, позы,
+  F9); diag_stage205 59/59 (совместимость); полный регресс: verify_stage202
+  13/13, verify_battle_native 18/18, diag_replay_flow 10/10,
+  diag_click_offset 0 dead, e2e/drag/ghost/battle_bg/hidpi_smoke ALL PASS;
+  ruff 0 (src+scripts); импорт-смоук OK. ВИЗУАЛЬНО (скриншоты): HUD «Ренджи
+  Абараи» + аватар Ренджи в бою; поза Ренджи в инвентаре; Ичиго —
+  возвращается 1:1 в обоих местах.
+- Витрина: pockie_rpg_v204.0.zip.
+
+## Предыдущая версия: v203.0
+
+**Stage 205 — костюм cloth14 (назван «Сакура» — ОШИБКА, исправлено в
+Stage 206: это РЕНДЖИ АБАРАИ): первый скин игрока СО СВОИМИ анимациями
+боя (надел костюм → персонаж в бою меняется целиком):**
+- **Экстракция** (пайплайн восстановлен: scripts/extract_swf.py утерян в
+  чистках, FFDec 22.0.2 пере-скачан в `~/tools/ffdec`): 5 SWF
+  (motion_0_14_{998,52,55,63,100}_role.s118.swf) → `-export sprite` → 32 кадра
+  в единых баундах экшена, прозрачный фон, качество lossless.
+  Hold-дубли таймлайна SWF (idle 8→4 уникальных, attack 11→7, hit 7→3,
+  death 2→1) СОХРАНЕНЫ — конвенция ichigo/black_samurai (аутентичный тайминг).
+- **ФЛИП ВЛЕВО→ВПРАВО (запрос пользователя: «это будет игрок»)**: все кадры
+  отзеркалены попиксельно (PIL FLIP_LEFT_RIGHT, flip→re-mirror==original
+  проверен) → INTRINSIC_FACING cloth14/*=RIGHT, needs_flip_for_player=False,
+  runtime-флип НЕ нужен (в отличие от ichigo LEFT+flip).
+- **Механизм скинов (data-driven)**: `PLAYER_MOTION_SKINS` в config (name→
+  folder для ichigo/cloth14); OUTFITS_DB["suit_cloth14"]["motion_skin"]=
+  "cloth14"; `IdleAnimator.skin_actions` подменяет ichigo-мапу при is_player
+  (None = классика); фабрика `_spawn_player_animator()` (4-я копия создания
+  аниматора игрока устранена: _enter_battle/башня/гонтлет/test_battle);
+  `_player_skin_actions()` резолвит equipped_outfit → outfit_inst_ → БД.
+  БУДУЩИЙ костюм = папка кадров + запись OUTFITS_DB с motion_skin + строка в
+  PLAYER_MOTION_SKINS — код не меняется.
+- **Предмет**: OUTFITS_DB/EQUIPMENT_DB suit_cloth14 «Костюм «Сакура»»
+  (agility_dps, bmv 25/12/18 — СТАТЫ-ПЛЕЙСХОЛДЕР до уточнения), иконка
+  suit_cloth14.png (= upload/icon_avatar_cloth14.s110.png), 2 шт в
+  starter_items (тест: носка + попытка синтеза). Работает и через инстанс
+  синтеза outfit_inst_N.
+- Аватарки HUD — пока от Ичиго (пользователь пришлёт позже, отдельный шаг).
+- Верификация: НОВЫЙ scripts/diag_stage205.py 59/59 (ассеты, конфиг, скин-
+  механизм база+инстанс, 5 действий, fallback, обратная совместимость ichigo,
+  120 кадров боя, F9, death-фриз); полный регресс: verify_stage202 13/13,
+  verify_battle_native 18/18, diag_replay_flow 10/10, diag_click_offset 0 dead,
+  e2e/drag/ghost/battle_bg/hidpi_smoke ALL PASS; ruff 0; импорт 50 модулей OK;
+  визуальный скриншот-контроль боя (idle+attack, взгляд ВПРАВО ✓).
+- Витрина: pockie_rpg_v203.0.zip.
+
+## Предыдущая версия: v202.2
+
+**Stage 204 — «волна чистки» по аудиту (Task ID audit-204): мёртвый код ~440
+строк удалён, топ-дубли консолидированы, −695 строк суммарно (32768→32073):**
+- **Мёртвый код (0 вызовов, каждый верифицирован grep по src+scripts)**:
+  - config.py ~70 имён: FULLSCREEN_ENABLED/WINDOW_MAXIMIZED/SCREEN_*_UI/
+    FULLSCREEN_TOGGLE_KEY, BGM/SFX_VOLUME, LEVEL_UP_MIN/MAX_ATK+STR/AGI/STA
+    (state считает из собственных таблиц), WORLD_BOSS_DAILY_ATTEMPTS/HP_BAR_W/H/
+    SPRITE_SCALE/RANK_F, TOWER_MAP_BACKGROUND/MODAL_W/H/FLOOR_ROW_H/LOCKED_COLOR,
+    SKILLS_BTN_* ×4 + SKILLS_MODAL_CLOSE_* ×4 + SKILLS_SLOT_ACTIVE_FG,
+    CRYSTAL_BLADE_* ×6 (осталась FREEZE_DURATION — живой дефолт fighter),
+    FIREBALL_OVERLAY_FPS/RENDER_W/H, DEBUFF_ICON_Y_OFFSET/CENTERED/LEFT_PADDING,
+    BREATHING_AMP/PERIOD, LUNGE_*/DEATH_FREEZE_DURATION (тайминги в
+    AttackSequence), COUNTDOWN_TOTAL, BASE_ATK_TIME, MAP_BACKGROUND,
+    ICHIGO_ACTION_NAME_MAP, SUIT_TO_MOTION, ENEMY_MUST_FACE_LEFT/
+    PLAYER_MUST_FACE_RIGHT (правило зашито в needs_flip_for_*), WEAPON_SPAN,
+    BOTTOM_BAR_BG, MAP_CARD_HOVER_SHADOW, BUTTON_W/H, BAR_PADDING, TEXT_NAME,
+    PEOPLEPOSE_DIR, CHAR_SHEET_BORDER/PADDING, MODAL_GRID_PADDING,
+    MINIMAP_MOBS_BG, WORLDMAP_FADE_SEC, INVENTORY_PAGE_COUNT + get_skill_config.
+  - formulas.py: rating_to_percent, RATING_PCT_DIVISOR, CRIT_BASE_CHANCE_PCT,
+    RATING_STAT_KEYS (+ чистка re-export блока config).
+  - state.py ×8: get_effective_max_mp, get_max_hp, get_enchant_level, add_item,
+    _loc_item, is_daily_quest_complete, first_available_story_quest,
+    claim_tower_first_clear.
+  - pygame_ui.py ×8: _get_modal_fade_alpha (осиротел после fade Stage 202),
+    _exit_las_noches, _select_tower_floor, _buy_tower_consumable,
+    _set_shop_eq_subtab + поле _shop_eq_subtab, _exit_game_from_bar
+    (кнопки «Выход» нет), _shop_equipment_prev/next_page.
+  - render_map.py: _f_map_* ×8 (сироты после _su_font) + _FS_MAP_LABEL.
+  - save_load: has_save/delete_save/is_dirty + TEMP_FILE_PATH (mkstemp инлайном).
+  - data: tower_db (TOWER_MATERIAL_IDS, TOWER_MODIFIERS, is_boss_floor),
+    item_db (GEAR_SLOTS/OUTFIT_SLOTS), npcs_db (NPC_QUEST_GIVERS).
+  - прочие: Fighter.heal, all_skill_ids, IdleAnimator.get_breathing_offset
+    (всегда 0), AssetManager.get_font + _font_cache, _CAST_EFFECT_PARAMS,
+    _place_quest_arrow (инлайн в _quest_go_to), SYNTH_SLOT_PAD.
+- **Дубли → единые точки**:
+  - effects.py: иерархия LoopingOverlay (цикл: activate/deactivate/update/
+    render-центр) ← EffectOverlay ← IceBlockEffect; OneShotEffect (update
+    «проиграл и погас» + _sprite) ← CastEffect/ProjectileEffect.
+    CastEffect.update == ProjectileEffect.update были ratio 1.00.
+  - **Сброс боевого состояния 6 копий → _reset_battle_common_state
+    (countdown_active=)**: _enter_battle, _enter_tower_battle, _exit_battle
+    (countdown_active=False), гонтлет, test_battle enter/exit; хелпер расширен
+    до супермножества (+endgame-поля text/phase/xp/gold/level, _skills_modal_open).
+  - **Фабрика врага _spawn_enemy_fighter(enemy_role, enemy)** — 3 копии
+    (_enter_battle/гонтлет/test_battle) → 1; ПОПУТНЫЙ ФИКС F9: test-копия
+    юзала несуществующую папку "samurai_idle" (надо MOB_TO_MOTION →
+    "samurai/idle") и теряла role_id (спец-обработка синего/чёрного самурая).
+  - DEFAULT_GEAR_ICONS + DEFAULT_TYPE_TO_SLOT в item_db — вместо 2 dict
+    (render_battle + render_quick_battle).
+  - dirname×4-хак путей иконок render_inventory ×3 → ASSETS_DIR.
+- **Готч каскада**: CAST_FIREBALL_FPS/W/H/Y_OFFSET оказались ЖИВЫМИ (combat_replay
+  импортирует напрямую, мимо мёртвого словаря) — восстановлены;TEMP_FILE_PATH
+  и _FS_MAP_LABEL — каскадные сироты после удаления delete_save/_f_map_label.
+- Верификация: py_compile ВСЕХ 40 файлов, ruff 0, полный импорт 40 модулей;
+  verify_stage202 13/13, verify_battle_native 18/18, diag_replay_flow 10/10,
+  diag_click_offset 0 dead, diag_e2e_clicks/diag_window_drag/diag_drag_ghost/
+  diag_battle_bg/hidpi_smoke ALL PASS; headless-смоук F9 (папка/role_id/интро-лог/
+  выход) и боя (120 кадров update+render, fireball one-shot, exit).
+- Витрина: pockie_rpg_v202.2.zip.
+
+## Предыдущая версия: v202.1
 
 **Stage 203 — рефакторинг UI по чек-листу REFACTORING_PROMPT_diff.md (дубли,
 мёртвый код, UI_THEME) — с честными поправками к промту:**
@@ -812,6 +1077,22 @@ _drop_shadow; стеклянный блик полосок:**
 
 ## История Stage'ей (ЕДИНСТВЕННЫЙ таймлайн — от новых к старым)
 
+- **Stage 205 (v203.0)** — костюм cloth14 «Сакура»: первый скин игрока со
+  СВОИМИ анимациями боя. Экстракция FFDec `-export sprite` (32 кадра,
+  hold-дубли сохранены — конвенция), кадры ПРЕДФЛИПНУТЫ ВЛЕВО→ВПРАВО
+  (INTRINSIC_FACING=RIGHT, без runtime-флипа). Скин-механизм data-driven:
+  PLAYER_MOTION_SKINS + OUTFITS_DB.motion_skin + IdleAnimator.skin_actions;
+  фабрика _spawn_player_animator (−4-я копия). suit_cloth14 в OUTFITS_DB/
+  EQUIPMENT_DB/starter_items ×2. Диаг: scripts/diag_stage205.py 59/59.
+- **Stage 204 (v202.2)** — «волна чистки» по AST-аудиту: ~440 строк мёртвого
+  кода удалено (config ~70 имён, formulas ×4, state ×8, pygame_ui ×8,
+  render_map ×9, save_load ×4, data ×7, прочие ×7); дубли консолидированы:
+  effects.py → иерархия LoopingOverlay/OneShotEffect, сброс боевого состояния
+  6 копий → _reset_battle_common_state(countdown_active=), фабрика врага
+  _spawn_enemy_fighter ×3 → 1 (+фикс F9: битая папка "samurai_idle" и потеря
+  role_id), DEFAULT_GEAR_ICONS/DEFAULT_TYPE_TO_SLOT в item_db, dirname×4 →
+  ASSETS_DIR. Итого −695 строк. Готч: CAST_FIREBALL_* оказались живыми
+  (combat_replay) — восстановлены.
 - **Stage 202 (v202.0)** — фиксы боя: перезапись scale пульсом в цифрах
   урона (позиции «плавали»), подложка уровня врага от ширин с аутлайном;
   ui/tooltip.py — единая «панель у курсора» (статус + лут); fade-in окна
@@ -1347,6 +1628,16 @@ _drop_shadow; стеклянный блик полосок:**
 - **Упаковка (RULE 5)**: включать `src/pockie_rpg/data/`, исключать только корневую `data/` (сейвы) — в архиве v134.0 пакет data/ отсутствовал.
 
 ### UI
+- **Skin-анимации игрока (Stage 205)** — надетый костюм с `motion_skin` меняет
+  ВСЕ папки действий через `IdleAnimator.skin_actions`; неизвестное действие →
+  fallback на idle-папку скина; suit_ichigo без motion_skin = классика (None).
+- **Hold-дубли кадров — НОРМА** — кадры-повторы таймлайна SWF (hit держит позу
+  5 тиков) сохраняются при экстракции: это аутентичный тайминг при плоском
+  fps аниматора (конвенция ichigo/hit, black_samurai/hit — то же).
+- **Флип ассетов vs runtime (Stage 205)** — cloth14 кадры ПРЕДФЛИПНУТЫ
+  (INTRINSIC_FACING=RIGHT → needs_flip_for_player=False); ichigo хранится
+  LEFT и флипается в рантайме. При добавлении скина смотреть на ИСХОДНИК и
+  ставить INTRINSIC_FACING по факту, флипать кадры заранее только для игрока.
 - **Modal flags inside MAP** — все экраны boolean-флаги; **ESC cascade** — hardcoded
   список в `_handle_keydown`; новая модалка → вставить в cascade.
 - **Мир. карта**: координаты 768×426 логические; хиттест по маскам `from_surface(hit,127)`,
@@ -1564,8 +1855,65 @@ _drop_shadow; стеклянный блик полосок:**
       снижает эффект блока цели…» — те же формулы, что Stage 104).
 - [ ] 💡 Kill-камера: после death_fall врага — замедление последних 3 кадров
       ×0.5 (драматичнее финал боя).
-- [ ] 💡 Единый пайплайн экстракции: scripts/extract_swf.py (обёртка ffdec
-      `-export sprite` + авто-проверка яркости/альфы/количества кадров).
+- [x] 💡 Единый пайплайн экстракции: scripts/extract_swf.py (обёртка ffdec
+      `-export sprite` + авто-проверка яркости/альфы/количества кадров) —
+      Stage 205 частично: jar восстановлен в `~/tools/ffdec` (постоянно),
+      экстракция cloth14 выполнена вручную той же командой; обёртка-скрипт
+      всё ещё НЕ восстановлена (при частых новых SWF — вернуть).
+
+**Скины игрока (Stage 205/206)**
+- [x] ⚡ Аватарки cloth14 (Stage 206): userface_0_14_role.gif заведён через
+      Suit.avatar_filename + resolve_player_suit; HUD-аватар/имя/поза
+      инвентаря переключаются надетым костюмом (и обратно).
+- [x] ⚡ Статы/имя cloth14 уточнены (Stage 206): пользователь назвал
+      персонажа — Ренджи АБАРАИ (не Сакура); archetype strength_dps
+      (base 15/8/12, bmv 12/30/20) — при желании балянс сверить с оригиналом.
+- [ ] ⚡ Живое превью скина в гардеробе/инвентаре: при hover на костюм с
+      motion_skin — анимированный idle скина вместо статичной иконки
+      (ассеты уже в памяти ассет-менеджера).
+- [ ] 💡 Превью персонажа на MAP в надетом скине (карточка персонажа):
+      сейчас костюм виден только в бою — маленький спрайт idle у аватара.
+- [ ] 💡 Idle-варианты cloth14: у Ичиго есть idle_bored/idle_breath_long,
+      у cloth14 только базовый 998 — попросить у пользователя SWF
+      доп. idling (в оригинале это motion_0_14_59/60_*) или фолбэк на базу.
+- [ ] 💡 ACTION_FPS per-skin: 11-кадровый attack cloth14 с hold'ами на 14 fps
+      может ощущаться медленнее ичиго-удара — пер-скинная таблица fps
+      (PLAYER_MOTION_SKINS[name] → {folder, fps}) по ощущению на мониторе.
+- [ ] 💡 F9 hotkey смены скина (Tab в TEST_BATTLE): мгновенная визуальная
+      проверка анимаций всех скинов без выхода в инвентарь.
+- [ ] 💡 Конвенция «скин = папка»: авто-диаг (расширить diag_stage205)
+      перечислением OUTFITS_DB.motion_skin → проверка наличия всех 5 папок
+      и кадры не-placeholder (ловит опечатки при добавлении новых скинов).
+- [ ] 🔥 Навыки от костюма (следующий шаг «всё привязано к костюму»):
+      у скинов в оригинале Pockie Ninja были СВОИ деки навыков —
+      OUTFITS_DB["skills"] + SwitchSkills при надевании (как статы);
+      Абараи — силовая дека (Забиммару-стайл).
+- [ ] ⚡ diag-валидация Suit-записей: для каждого STARTER_SUITS проверять
+      существование avatar (assets/icons/avatar/), pose (icons/character/)
+      и motion_folder (extracted/) — ловит опечатки при добавлении скинов
+      (сейчас проверяется только cloth14 вручную в diag_stage206).
+- [ ] ⚡ Attack-эффект per-skin: у Абарая атака могла бы иметь свой overlay
+      (выпад Забиммару) — расширить PLAYER_MOTION_SKINS[action → {folder,
+      effect}] и спавнить CastEffect-подобный оверлей в фазе удара.
+- [ ] 💡 Цвет плашки имени игрока от костюма (тип костюма → цвет:
+      strength — красный, agility — зелёный…): HUD_THEME + suit.type.
+- [ ] 💡 Мини-бейдж скина у аватара HUD (маленькая иконка надетого костюма
+      в углу аватара — видно активный скин и на карте, и в бою).
+- [ ] ⚡ diag_facing-валидация (урок Stage 207): для каждой папки из
+      INTRINSIC_FACING проверить, что ключ реально существует (опечатка
+      ключа тихо уводит папку на alpha-mass эвристику — она врёт на
+      причёсках/хвостах) + что все папки скинов присутствуют в dict.
+- [ ] 💡 MANIFEST.json: поле facing для каждого скина (source + final,
+      напр. «cloth14: source LEFT → pre-flipped RIGHT») — память конвейера
+      для будущих костюмов (пользователь сообщает направление при передаче).
+- [ ] ⚡ Спринт-пыль: частицы у ног в момент старта RUN_FORWARD и разворота
+      RUN_BACK (заземляет рывок, дешёвый particles.spawn).
+- [ ] 💡 Ролевые скины для врагов: skin_actions сейчас only is_player —
+      обобщить на не-игроков (элитные мобы/боссы с уникальными сетами
+      анимаций через ту же INTRINSIC_FACING/base_flip-механику).
+- [x] ⚡ F9-оверлей отладки анимации: мини-строка folder+flip обоих
+      аниматоров (видно фейсинг/папку скина живьём при отладке). [→ Stage 208:
+      реализован + фаза seq + цветовая индикация flip; тест-панель на F8]
 
 **Рефакторинг / аудит 4.3 (дальнейшая дедупликация)**
 - [ ] ⚡ Тултип предмета: 3 копии layout-логики (inventory/shop/quick_battle)
@@ -1771,8 +2119,58 @@ _drop_shadow; стеклянный блик полосок:**
 - [ ] 💡 Комплектность ассетов карты: 35 zone_id × 3 состояния vs файлы на диске.
 - [x] 💡 Централизовать магические числа — Stage 170 (A3): 8 из 9 перенесены
       (см. таблицу «Магические числа»; осталась база max_atk ×1.5).
-- [ ] 💡 Унифицировать crit-системы — удалить legacy calc_crit_chance/calc_crit_multiplier ИЛИ пометить UI-only (теперь живут в combat/formulas.py).
-- [ ] 💡 Centralize slot_name_map + stat_label_map — дубликаты в 5+ UI файлах.
+- [x] 💡 Унифицировать crit-системы — legacy calc_crit_chance/calc_crit_multiplier
+      УДАЛЕНЫ ещё в Stage 170 (проверено аудитом кода: 0 упоминаний, только
+      комментарий config.py:1437); rating_to_percent — мёртвый (см. блок «Аудит кода»).
+- [x] 💡 Centralize slot_name_map + stat_label_map — УЖЕ в config
+      (SLOT_NAME_RU / STAT_LABEL_RU, 5 UI-файлов импортируют; проверено аудитом).
+
+**Аудит кода — дубли и мёртвый код (анализ AST-сканерами, пост-Stage 203)**
+- [x] 🔥 Мёртвый код ~440 строк — УДАЛЕН в Stage 204 (полный список — в блоке
+      версии v202.2 и таймлайне; повторный прогон сканера: 0 новых кандидатов,
+      кроме каскадных TEMP_FILE_PATH/_FS_MAP_LABEL — тоже удалены).
+- [x] ⚡ effects.py: базовые классы — Stage 204: LoopingOverlay ← EffectOverlay
+      ← IceBlockEffect; OneShotEffect ← CastEffect/ProjectileEffect
+      (бывший ratio 1.00 в update устранён).
+- [x] ⚡ Сброс боевого состояния 6 мест — Stage 204: все через
+      _reset_battle_common_state(countdown_active=); хелпер расширен до
+      супермножества (+endgame-поля, _skills_modal_open).
+- [x] ⚡ Фабрика вражеского Fighter+IdleAnimator — Stage 204:
+      _spawn_enemy_fighter; попутно фикс F9 (папка "samurai_idle" не
+      существовала, терялся role_id).
+- [x] 💡 default_icons dict ×2 — Stage 204: DEFAULT_GEAR_ICONS +
+      DEFAULT_TYPE_TO_SLOT в item_db.
+- [x] 💡 dirname×4-хак — Stage 204: render_inventory ×3 (794/847/920) →
+      ASSETS_DIR (в quick_battle ещё с Stage 203).
+- [ ] 💡 SynthRendererMixin._synth_pick_item ≈ _handle_synth_right_click (0.80) —
+      симметричные взять/вернуть, общее ядро
+- [ ] 💡 damage.py: блок hit-roll + apply_damage_pipeline + freeze-амплификация
+      дублирован в compute_attack/compute_skill_damage (отличаются лог-тексты)
+- [ ] 💡 render_world_boss.py — shadow-эллипс ×2 (мелочь, same-file)
+- [ ] 💡 test_battle._update_test_battle ≈ combat_replay._update_battle (0.83,
+      47/52 строк) — зеркальный update-цикл; после Stage 204 зеркалится только
+      сам update (входы/выходы уже на общем хелпере); при касании вынести базу
+- [x] 💡 Тултип предмета: 3 копии layout-логики — уточнено аудитом: структуры
+      РАЗОШЛИСЬ (inventory 1008/shop 239/quick_battle 211+245, ratio < 0.70),
+      унификация НЕ срочна, оставить по мере касания
+
+**Идеи из Stage 204 (волна чистки)**
+- [ ] ⚡ _bar_ghosts: защитная инициализация в __init__ (сейчас lazy в
+      update-пути combat_replay: render без update роняет property — поймано
+      headless-смоуком Stage 204; в живом цикле порядок update→render всегда OK).
+- [ ] ⚡ scripts/diag_full_flow.py — headless-прогон 200 кадров
+      MAP→BATTLE→endgame→MAP с assert'ами по состоянию: страховка после любых
+      рефакторингов входа/выхода боя (сегодняшние смоуки делались разово).
+- [ ] 💡 ProjectileEffect: CAST_HOLD_FRAMES → параметр start() — разные снаряды
+      с разной фазой удержания у кастера.
+- [ ] 💡 config: сгруппировать CAST_FIREBALL_FPS/W/H/Y_OFFSET в dict
+      CAST_FIREBALL — готовность к новым снарядам без россыпи констант.
+- [ ] 💡 HUD_THEME → подсекция UI_THEME (единый словарь тем UI+HUD, два словаря
+      с пересекающимися значениями).
+- [ ] 💡 layout.tsx: <title> «Pockie RPG» вместо дефолтного скаффолдного
+      (полировка вкладки браузера витрины).
+- [ ] 💡 PlayerState: сгруппировать daily_quest_progress/claimed/date в
+      dataclass DailyQuestState — первый безопасный шаг к расколу [5.3].
 - [x] 💡 Cache fonts в render_map.py — ПЕРЕКРЫТО Stage 168: `_su_text` кэширует
       не только шрифты, но и отрисованный текст (LRU 2048) — выгоднее.
 - [x] ⚡ Кэш поверхностей подписей слотов (сейчас 9 текст-рендеров на слот/кадр)

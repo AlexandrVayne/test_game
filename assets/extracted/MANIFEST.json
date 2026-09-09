@@ -1,10 +1,10 @@
 {
  "schema_version": "5.0",
- "generated_at": "2025-08-17T05:55:00Z",
- "stage": "Stage 177 — Black Samurai (role 10004) full re-extraction from user SWFs (FFDec 22.0.2 `-export sprite`)",
+ "generated_at": "2025-09-09T07:20:00Z",
+ "stage": "Stage 205 — cloth14 costume (player skin) 5 animations extracted from user SWFs (FFDec 22.0.2 -export sprite, pre-flipped LEFT->RIGHT for player)",
  "summary": {
-  "total_animation_folders": 13,
-  "total_png_frames": 168,
+  "total_animation_folders": 18,
+  "total_png_frames": 200,
   "ichigo_animations": 7,
   "samurai_animations": 6,
   "naming_convention": "<character>_<action>[_<variant>]",
@@ -16,7 +16,8 @@
    "Hit reaction for enemy now uses samurai_hit animation (not just shake)",
    "Death sequence: death_fall (10 frames) → freeze on last frame (lying pose)",
    "VLM-verified: enemy hit pose, attack pose, death pose all confirmed correct"
-  ]
+  ],
+  "cloth14_animations": 5
  },
  "samurai_animations": [
   {
@@ -167,5 +168,68 @@
   "Stage 177: старые кадры были выцветшими/полупрозрачными (битая экстракция DefineBitsJPEG3).",
   "Новый пайплайн: JPEXS FFDec 22.0.2, `-export sprite` — рендер кадров DefineSprite в ЕДИНОМ холсте каждого экшена, корректная альфа и цвет.",
   "ID действий = суффиксам имён SWF (999=idle, 52=attack)."
- ]
+ ],
+ "cloth14_animations": {
+  "idle": {
+   "folder": "cloth14/idle",
+   "action_id": 998,
+   "frame_count": 8,
+   "frame_size": {
+    "w": 83,
+    "h": 109
+   },
+   "intrinsic_facing": "RIGHT",
+   "flip_for_player": false,
+   "source": "user-Stage205 (motion_0_14_998_role.s118.swf, pre-flipped LEFT->RIGHT)"
+  },
+  "attack": {
+   "folder": "cloth14/attack",
+   "action_id": 52,
+   "frame_count": 11,
+   "frame_size": {
+    "w": 91,
+    "h": 109
+   },
+   "intrinsic_facing": "RIGHT",
+   "flip_for_player": false,
+   "source": "user-Stage205 (motion_0_14_52_role.s118.swf, pre-flipped LEFT->RIGHT)"
+  },
+  "run": {
+   "folder": "cloth14/run",
+   "action_id": 55,
+   "frame_count": 4,
+   "frame_size": {
+    "w": 72,
+    "h": 120
+   },
+   "intrinsic_facing": "RIGHT",
+   "flip_for_player": false,
+   "source": "user-Stage205 (motion_0_14_55_role.s118.swf, pre-flipped LEFT->RIGHT)"
+  },
+  "hit": {
+   "folder": "cloth14/hit",
+   "action_id": 63,
+   "frame_count": 7,
+   "frame_size": {
+    "w": 77,
+    "h": 123
+   },
+   "intrinsic_facing": "RIGHT",
+   "flip_for_player": false,
+   "source": "user-Stage205 (motion_0_14_63_role.s118.swf, pre-flipped LEFT->RIGHT)"
+  },
+  "death": {
+   "folder": "cloth14/death",
+   "action_id": 100,
+   "frame_count": 2,
+   "frame_size": {
+    "w": 127,
+    "h": 66
+   },
+   "intrinsic_facing": "RIGHT",
+   "flip_for_player": false,
+   "source": "user-Stage205 (motion_0_14_100_role.s118.swf, pre-flipped LEFT->RIGHT)"
+  }
+ },
+ "cloth14_notes": "Stage 205 — первый альтернативный скин игрока (suit_cloth14). Экстракция JPEXS FFDec 22.0.2 `-export sprite` (кадры в единых баундах экшена, прозрачный фон, hold-дубли таймлайна сохранены — конвенция ichigo/black_samurai). ОТЛИЧИЕ: кадры ПРЕДВАРИТЕЛЬНО ОТЗЕРКАЛЕНЫ по горизонтали (исходник смотрит ВЛЕВО, костюм игрока должен смотреть ВПРАВО) — INTRINSIC_FACING=cloth14/*=RIGHT, runtime-флип не нужен. Скин переключается надетым костюмом: OUTFITS_DB['suit_cloth14']['motion_skin']='cloth14' → config.PLAYER_MOTION_SKINS; IdleAnimator.skin_actions (Stage 205). Stage 206 — персонаж костюма: РЕНДЖИ АБАРАИ (пользователь: НЕ Сакура; имя в OUTFITS_DB/STARTER_SUITS исправлено). Привязано к костюму целиком: аватар userface_0_14_role.gif (STARTER_SUITS['i290014'].avatar), имя «Ренджи Абараи» (HUD боя + char sheet), поза инвентаря people_013_pose.png (Suit.pose_filename), strength-статы (archetype strength_dps), анимации cloth14/*. Резолвер внешнего облика — roles_db.resolve_player_suit (equipped_outfit → OUTFITS_DB.suit_id → STARTER_SUITS; fallback player.suit_id). Старым сейвам — разовый грант 2× suit_cloth14 (флаг suit14_grant_v206)."
 }

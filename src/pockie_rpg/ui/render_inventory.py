@@ -18,7 +18,7 @@ import os
 
 import pygame
 
-from pockie_rpg.config import SCREEN_HEIGHT, SCREEN_WIDTH
+from pockie_rpg.config import ASSETS_DIR, SCREEN_HEIGHT, SCREEN_WIDTH
 from pockie_rpg.ui.animator import ClickRect
 
 # Stage 163 — ЗАГЛУШКИ ПУСТЫХ СЛОТОВ экипировки: item_id-представитель
@@ -776,32 +776,49 @@ class InventoryRendererMixin:
         self.screen.blit(grad, (rect.x + 1, rect.y + 1))
 
     def _char_pose_surface(self, max_design_h: int) -> pygame.Surface | None:
-        """Stage 152 — кэшированный спрайт персонажа для top-панели инвентаря.
+        """Stage 152/206 — кэшированный спрайт персонажа для top-панели.
 
         Раньше `image.load` + `smoothscale` гонялись КАЖДЫЙ КАДР (диск + ресемпл
         60 раз/сек при открытом инвентаре). Два уровня кэша:
-          * `_char_pose_raw` — сырая поверхность; None = загрузка провалилась,
-            повторных попыток нет (флаг `_char_pose_failed`).
+          * `_char_pose_raws[filename]` — сырые поверхности по файлу; None при
+            провале загрузки (файлы в `_char_pose_failed` — повторов нет).
           * `_char_pose_scaled_cache[(w, h)]` — финальные размеры (legacy и
             native кэшируются раздельно, т.к. размер включает масштаб).
         Масштаб считается в ДИЗАЙН-пространстве (кап ×2.0), финал ×_render_scale.
+
+        Stage 206 — файл позы приходит от НАДЕТОГО КОСТЮМА
+        (Suit.pose_filename: Ичиго — people_002_pose, Абарая — people_013_pose),
+        поэтому сырой кэш теперь словарь по имени файла. Отмасштабированный
+        кэш остаётся по (w, h): смена костюма меняет и сырую поверхность —
+        stale-записи по размеру вытесняются естественным образом (ключ тот же,
+        поверхность пересобирается при смене raw — версия raw в ключе).
         """
-        if getattr(self, "_char_pose_failed", False):
+        from pockie_rpg.game.state import resolve_player_suit
+
+        suit = resolve_player_suit(self.player)
+        pose_file = suit.pose_filename if suit else "people_002_pose.png"
+
+        failed = getattr(self, "_char_pose_failed", None)
+        if failed is None:
+            failed = self._char_pose_failed = set()
+        if pose_file in failed:
             return None
-        raw = getattr(self, "_char_pose_raw", None)
+        raws = getattr(self, "_char_pose_raws", None)
+        if raws is None:
+            raws = self._char_pose_raws = {}
+        raw = raws.get(pose_file)
         if raw is None:
             char_img_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-                "assets", "icons", "character", "people_002_pose.png"
+                str(ASSETS_DIR), "icons", "character", pose_file
             )
             try:
                 raw = pygame.image.load(char_img_path).convert_alpha()
             except Exception:
-                self._char_pose_failed = True
+                failed.add(pose_file)
                 return None
-            self._char_pose_raw = raw
+            raws[pose_file] = raw
         if raw.get_height() <= 0:
-            self._char_pose_failed = True
+            failed.add(pose_file)
             return None
         scale = min(max_design_h / raw.get_height(), 2.0)
         new_w = self._su(int(raw.get_width() * scale))
@@ -813,10 +830,13 @@ class InventoryRendererMixin:
         cache = getattr(self, "_char_pose_scaled_cache", None)
         if cache is None:
             cache = self._char_pose_scaled_cache = {}
-        scaled = cache.get((new_w, new_h))
+        # Stage 206 — ключ включает «поколение» raw-поверхности: при смене
+        # файла позы с теми же габаритами кэш не вернёт чужой спрайт.
+        raw_gen = id(raw)
+        scaled = cache.get((raw_gen, new_w, new_h))
         if scaled is None:
             scaled = pygame.transform.smoothscale(raw, (new_w, new_h))
-            cache[(new_w, new_h)] = scaled
+            cache[(raw_gen, new_w, new_h)] = scaled
         return scaled
 
     def _blit_slot_placeholder(self, slot_name: str, rect: pygame.Rect) -> None:
@@ -843,10 +863,7 @@ class InventoryRendererMixin:
         icon_filename = gear.get("icon_filename")
         if not icon_filename:
             return
-        icon_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-            "assets", "icons", "items", icon_filename
-        )
+        icon_path = os.path.join(str(ASSETS_DIR), "icons", "items", icon_filename)
         try:
             s = getattr(self, "_render_scale", 1.0)
             if not hasattr(self, "_gear_icon_cache"):
@@ -916,10 +933,7 @@ class InventoryRendererMixin:
         if not icon_filename:
             self._blit_gear_letter(gear, rect)
             return
-        icon_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-            "assets", "icons", "items", icon_filename
-        )
+        icon_path = os.path.join(str(ASSETS_DIR), "icons", "items", icon_filename)
         try:
             s = getattr(self, "_render_scale", 1.0)
             if not hasattr(self, "_gear_icon_cache"):

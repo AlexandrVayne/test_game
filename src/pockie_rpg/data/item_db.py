@@ -450,11 +450,43 @@ EQUIPMENT_DB: dict[str, dict] = {
         # В массовую продажу костюмы по-прежнему НЕ попадают.
         "sell_price": 50,
     },
+    # Stage 205/206 — костюм cloth14: первый костюм СО СВОИМИ анимациями боя
+    # (motion_skin → config.PLAYER_MOTION_SKINS["cloth14"]). Иконка —
+    # upload/icon_avatar_cloth14.s110.png; аватар userface_0_14_role.gif.
+    # Пользователь: персонаж — Ренджи АБАРАИ (не Сакура).
+    "suit_cloth14": {
+        "name": "Костюм «Ренджи Абараи»",
+        "slot": "outfit",
+        "item_level": 1,
+        "stats": {},
+        "icon_filename": "suit_cloth14.png",
+        "sell_price": 50,
+    },
 }
 
 # Stage 39 — Outfit slots (separate from gear).
-GEAR_SLOTS: list[str] = ["weapon", "head", "body", "hands", "belt", "boots", "accessory"]
-OUTFIT_SLOTS: list[str] = ["outfit"]
+# Stage 204 — GEAR_SLOTS/OUTFIT_SLOTS списки удалены (0 чтений: слоты гира
+# живут в state.equipped_gear, костюмы — отдельный путь гардероба).
+
+# Stage 204 — единые маппинги лут-дропа по ТИПУ предмета (раньше — два
+# одинаковых dict в render_battle и render_quick_battle): иконка и слот
+# по умолчанию для дропов, у которых потерялась связь с generated_weapons.
+DEFAULT_GEAR_ICONS: dict[str, str] = {
+    "weapon": "weapon_wooden.png",
+    "armor":  "vest_ninja.png",
+    "boots":  "boots_shinobi.png",
+    "ring":   "ring1.png",
+    "gloves": "gloves_leather.png",
+    "belt":   "belt_fabric.png",
+    "head":   "headband_ninja.png",
+}
+
+DEFAULT_TYPE_TO_SLOT: dict[str, str] = {
+    "weapon": "weapon", "armor": "body",
+    "boots":  "boots",  "ring":  "accessory",
+    "gloves": "hands",  "belt":  "belt",
+    "head":   "head",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -501,6 +533,8 @@ OUTFITS_DB: dict[str, dict] = {
         "bmv": {"strength": 30, "agility": 10, "stamina": 20},
         "growth_bonus": {"strength": 0.6, "agility": 1.35, "stamina": 0.5},
         "icon_filename": "suit_ichigo.png",
+        # Stage 206 — связь с Suit i290001 (аватар/имя/поза от костюма).
+        "suit_id": "i290001",
     },
     "suit_samurai_tank": {
         "name": "Костюм Самурая-танка",
@@ -546,6 +580,29 @@ OUTFITS_DB: dict[str, dict] = {
         "bmv": {"strength": 20, "agility": 40, "stamina": 10},
         "growth_bonus": {"strength": 0.8, "agility": 0.3, "stamina": 1.7},
         "icon_filename": "suit_ichigo.png",
+    },
+    # Stage 205/206 — cloth14 («Ренджи Абараи»): СИЛОВОЙ костюм (Ренджи —
+    # боец ближнего боя с Забиммару) со своим скином анимаций боя.
+    # Статы: сила-ориентированные — заметно меняют билд при надевании
+    # (правило пользователя: «все статы привязаны к своему костюму»).
+    "suit_cloth14": {
+        "name": "Костюм «Ренджи Абараи»",
+        "type": "strength",
+        "archetype": "strength_dps",
+        "base_stats": {"strength": 15, "agility": 8, "stamina": 12},
+        "bmv_price": {"strength": 12, "agility": 30, "stamina": 20},
+        "growth": {
+            "strength": {"current": 1.4, "max": 1.8},
+            "agility":  {"current": 0.4, "max": 0.6},
+            "stamina":  {"current": 0.9, "max": 1.3},
+        },
+        "bmv": {"strength": 12, "agility": 30, "stamina": 20},
+        "growth_bonus": {"strength": 1.4, "agility": 0.4, "stamina": 0.9},
+        "icon_filename": "suit_cloth14.png",
+        # Stage 205 — ключ игрока-скина: надетый костюм меняет анимации боя.
+        "motion_skin": "cloth14",
+        # Stage 206 — связь с Suit (аватар/имя/поза инвентаря).
+        "suit_id": "i290014",
     },
 }
 
@@ -671,6 +728,9 @@ def starter_items() -> list[str]:
             # дают две полные попытки либо цепочку с переносом +N).
             "suit_ichigo", "suit_ichigo", "suit_ichigo",
             "suit_ichigo", "suit_ichigo", "suit_ichigo",
+            # Stage 205 — костюм cloth14 со своим скином анимаций (тест
+            # переключения скина при надевании; 2 шт — попытка синтеза).
+            "suit_cloth14", "suit_cloth14",
             # Stage 180/181 — бафы для теста: по 3 штуки каждого вида опыта
             # (проверка активации, стакания и обновления времени).
             "buff_xp_50", "buff_xp_50", "buff_xp_50",
