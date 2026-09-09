@@ -9,6 +9,7 @@ UI_SCALE×BATTLE_WINDOW_SCALE в нативной фазе боя). Логика
 from __future__ import annotations
 
 import math
+import os
 import random
 
 import pygame
@@ -21,6 +22,7 @@ import pygame
 pygame.font.init()
 
 from pockie_rpg.config import (
+    ASSETS_DIR,
     AVATAR_SIZE,
     BANNER_BG,
     BANNER_H,
@@ -81,6 +83,7 @@ from pockie_rpg.config import (
     LOG_BAR_H,
     LOG_BG_ALPHA,
     LOG_BG_COLOR,
+    MAP_PANEL_BORDER,
     MP_BAR_H,
     MP_BAR_W,
     MP_BG_COLOR,
@@ -695,6 +698,7 @@ class BattleRendererMixin:
         gradient_from: tuple[int, int, int] | None = None,
         gradient_to: tuple[int, int, int] | None = None,
         gradient_mirrored: bool | None = None,
+        simple: bool = False,
     ) -> None:
         """Render a horizontal bar (HP/MP) with optional label.
 
@@ -717,19 +721,26 @@ class BattleRendererMixin:
 
         Stage 201 — x/y/w/h приходят в ДИЗАЙН-координатах и масштабируются
         через _su() внутри (вся внутренняя математика — в пикселях рендера).
+
+        Stage 203 — ``simple=True``: упрощённый MAP-режим (бывш.
+        _render_map_bar): без тени/ghost/блика/shine-градиента, рамка
+        MAP_PANEL_BORDER su(1), радиус 3, лейбл 10px bold — вид MAP-полосок
+        сохранён 1:1.
         """
         rx, ry = self._su(x), self._su(y)
         rw, rh = self._su(w), self._su(h)
         rect = pygame.Rect(rx, ry, rw, rh)
-        # Stage 196/197 — drop-shadow через общий хелпер (_drop_shadow):
-        # основная плашка +2,+2 (альфа 110) + мягкий ореол +3,+3 (альфа 45).
-        # Stage 197 — блик: 1px светлая линия вдоль верха полоски
-        # («стекло» в паре с тенью; под рамкой, над заливкой).
-        self._drop_shadow(rx, ry, rw, rh, offset=self._su(2), alpha=110,
-                          halo_alpha=45, halo_spread=self._su(1),
-                          border_radius=self._su(4),
-                          cache_key=f"bar_shadow_{rw}x{rh}")
-        pygame.draw.rect(self.screen, bg_color, rect, border_radius=self._su(4))
+        br = 3 if simple else self._su(4)
+        if not simple:
+            # Stage 196/197 — drop-shadow через общий хелпер (_drop_shadow):
+            # основная плашка +2,+2 (альфа 110) + мягкий ореол +3,+3 (альфа 45).
+            # Stage 197 — блик: 1px светлая линия вдоль верха полоски
+            # («стекло» в паре с тенью; под рамкой, над заливкой).
+            self._drop_shadow(rx, ry, rw, rh, offset=self._su(2), alpha=110,
+                              halo_alpha=45, halo_spread=self._su(1),
+                              border_radius=self._su(4),
+                              cache_key=f"bar_shadow_{rw}x{rh}")
+        pygame.draw.rect(self.screen, bg_color, rect, border_radius=br)
         fill_w = 0
         if maximum > 0:
             fill_w = max(0, int(rw * value / maximum))
@@ -770,9 +781,9 @@ class BattleRendererMixin:
                     phase = (math.sin(self._hp_pulse_timer * 2.0 * math.pi * HP_PULSE_FREQ_HZ) + 1.0) * 0.5
                     pulse_factor = HP_PULSE_MIN + (HP_PULSE_MAX - HP_PULSE_MIN) * phase
                     tinted = tuple(min(255, int(c * pulse_factor)) for c in fill_color)
-                    pygame.draw.rect(self.screen, tinted, fill_rect, border_radius=self._su(4))
+                    pygame.draw.rect(self.screen, tinted, fill_rect, border_radius=br)
                 else:
-                    pygame.draw.rect(self.screen, fill_color, fill_rect, border_radius=self._su(4))
+                    pygame.draw.rect(self.screen, fill_color, fill_rect, border_radius=br)
         # Stage 193 — белый «догоняющий» сегмент (fill — текущая, ghost —
         # прошлое значение; зазор = недавно потерянное HP).
         if ghost_value is not None and maximum > 0:
@@ -785,12 +796,13 @@ class BattleRendererMixin:
                 )
         # Stage 196/197 — стеклянный блик: 1px светлая линия вдоль верха
         # полоски (с отступом под скруглённые углы radius 4).
-        gloss_w = max(1, rw - self._su(6))
-        gloss = self._static_surface(
-            f"bar_gloss_{gloss_w}", (gloss_w, 1),
-            lambda s: s.fill((255, 255, 255, 60)),
-        )
-        self.screen.blit(gloss, (rx + self._su(3), ry + self._su(1)))
+        if not simple:
+            gloss_w = max(1, rw - self._su(6))
+            gloss = self._static_surface(
+                f"bar_gloss_{gloss_w}", (gloss_w, 1),
+                lambda s: s.fill((255, 255, 255, 60)),
+            )
+            self.screen.blit(gloss, (rx + self._su(3), ry + self._su(1)))
         # Stage 198 — SHINE SWEEP: раз в BAR_SHINE_PERIOD сек мягкая белая
         # полоса пробегает слева направо по заливке (у зеркального врага —
         # справа налево, зеркально). Бэнд кэшируется, клип по телу полоски.
@@ -820,10 +832,18 @@ class BattleRendererMixin:
                     band, (left, ry),
                     area=pygame.Rect(src_x, 0, right - left, rh),
                 )
-        pygame.draw.rect(self.screen, HUD_BORDER_COLOR, rect, 1, border_radius=self._su(4))
+        if simple:
+            pygame.draw.rect(self.screen, MAP_PANEL_BORDER, rect, self._su(1),
+                             border_radius=3)
+        else:
+            pygame.draw.rect(self.screen, HUD_BORDER_COLOR, rect, 1,
+                             border_radius=self._su(4))
 
         if label:
-            label_surf = self._su_font(13).render(label, True, TEXT_WHITE)
+            if simple:
+                label_surf = self._su_text(label, 10, TEXT_WHITE, bold=True)
+            else:
+                label_surf = self._su_font(13).render(label, True, TEXT_WHITE)
             label_rect = label_surf.get_rect(center=rect.center)
             self.screen.blit(label_surf, label_rect.topleft)
 
@@ -1447,7 +1467,6 @@ class BattleRendererMixin:
                 # Stage 118 — uses shared _build_loot_tooltip_lines + _render_loot_slot
                 # from QuickBattleRendererMixin so the tooltip shows base + extra stats.
                 # Stage 119 — uses unified _endgame_equipment_drop (max 1 per battle).
-                from pockie_rpg.config import RARITY_RGB, RARITY_SLOT_BG
                 loot_items: list[dict] = []
 
                 # Gems.
@@ -1461,10 +1480,10 @@ class BattleRendererMixin:
                     from pockie_rpg.data.item_db import get_gem, get_gem_icon_filename
                     icon_file = get_gem_icon_filename(g_type, g_level)
                     icon_path = str(GEM_ICON_DIR / icon_file)
-                    if hasattr(self, "_load_gem_icon_surface"):
-                        icon_surf = self._load_gem_icon_surface(icon_path, self._su(48))
-                    else:
-                        icon_surf = None
+                    # Stage 203 — _su_image(fit) вместо удалённого
+                    # _load_gem_icon_surface (42 = 48 − 6, прежний внутренний
+                    # отступ иконки в слоте).
+                    icon_surf = self._su_image(icon_path, 42, 42, fit=True)
                     gem_def = get_gem(g_type)
                     gem_name = gem_def.get("name", g_type) if gem_def else g_type
                     loot_items.append({"icon_surf": icon_surf, "rarity": "Grey", "count": count,
@@ -1500,12 +1519,10 @@ class BattleRendererMixin:
                         matched_item = self.player.generated_weapons.get(item_id)
                         if matched_item is not None:
                             icon_filename = matched_item.get("icon_filename", icon_filename)
-                    if hasattr(self, "_load_item_icon_surface"):
-                        icon_surf = self._load_item_icon_surface(icon_filename, self._su(48))
-                    else:
-                        icon_surf = None
+                    icon_path = os.path.join(str(ASSETS_DIR), "icons", "items", icon_filename)
+                    icon_surf = self._su_image(icon_path, 42, 42, fit=True)
                     tooltip_lines = None
-                    if matched_item is not None and hasattr(self, "_build_loot_tooltip_lines"):
+                    if matched_item is not None:
                         tooltip_lines = self._build_loot_tooltip_lines(
                             item_name=eq_name, rarity=eq_rarity,
                             item_stats=matched_item.get("stats", {}),
@@ -1547,62 +1564,15 @@ class BattleRendererMixin:
                         # Stage 118 — delegate to shared _render_loot_slot (handles
                         # rarity bg, icon, count badge, hover + rich tooltip).
                         # Stage 201 — координаты ДИЗАЙН (масштабирует внутри).
-                        if hasattr(self, "_render_loot_slot"):
-                            self._render_loot_slot(
-                                sx, sy, slot_sz, loot.get("icon_surf"),
-                                loot.get("rarity", ""), loot.get("count", 1),
-                                loot.get("type", "item"),
-                                loot.get("tooltip", ""),
-                                loot.get("tooltip_lines"),
-                            )
-                        else:
-                            # Fallback inline rendering (legacy path).
-                            slot_rect = pygame.Rect(sx, sy, slot_sz, slot_sz)
-                            bg_color = RARITY_SLOT_BG.get(loot["rarity"], (39, 39, 42))
-                            pygame.draw.rect(self.screen, bg_color,
-                                             self._su_rect(sx, sy, slot_sz, slot_sz),
-                                             border_radius=self._su(6))
-                            border_color = RARITY_RGB.get(loot["rarity"], (82, 82, 91))
-                            is_hover = slot_rect.collidepoint(self._mouse_pos)
-                            pygame.draw.rect(self.screen, border_color,
-                                             self._su_rect(sx, sy, slot_sz, slot_sz),
-                                             self._su(3) if is_hover else self._su(2),
-                                             border_radius=self._su(6))
-                            if loot.get("icon_surf"):
-                                iw, ih = loot["icon_surf"].get_size()
-                                d = self._su_rect(sx, sy, slot_sz, slot_sz)
-                                self.screen.blit(loot["icon_surf"],
-                                                 (d.x + (d.w - iw) // 2, d.y + (d.h - ih) // 2))
-                            if loot["count"] > 1:
-                                badge = self._su_font(14).render(
-                                    f"x{loot['count']}", True, (255, 255, 255)
-                                )
-                                bw = badge.get_width() + self._su(4)
-                                bh = badge.get_height() + self._su(2)
-                                d = self._su_rect(sx, sy, slot_sz, slot_sz)
-                                pygame.draw.rect(
-                                    self.screen, (0, 0, 0),
-                                    pygame.Rect(d.right - bw - self._su(2),
-                                                d.bottom - bh - self._su(2), bw, bh),
-                                    border_radius=self._su(3),
-                                )
-                                self.screen.blit(badge, (d.right - bw,
-                                                         d.bottom - bh - self._su(1)))
-                            if is_hover and loot.get("tooltip"):
-                                tip_surf = self._su_font(14).render(
-                                    loot["tooltip"], True, (255, 255, 255)
-                                )
-                                tw = tip_surf.get_width() + self._su(8)
-                                th = tip_surf.get_height() + self._su(4)
-                                d = self._su_rect(sx, sy, slot_sz, slot_sz)
-                                tx = d.centerx - tw // 2
-                                ty = d.top - th - self._su(4)
-                                if ty < 0:
-                                    ty = d.bottom + self._su(4)
-                                tip_rect = pygame.Rect(tx, ty, tw, th)
-                                pygame.draw.rect(self.screen, (15, 15, 18), tip_rect, border_radius=self._su(4))
-                                pygame.draw.rect(self.screen, border_color, tip_rect, 1, border_radius=self._su(4))
-                                self.screen.blit(tip_surf, (tx + self._su(4), ty + self._su(2)))
+                        # Stage 203 — hasattr-гард и fallback удалены (мёртвый
+                        # код: QuickBattleRendererMixin всегда в PygameUI).
+                        self._render_loot_slot(
+                            sx, sy, slot_sz, loot.get("icon_surf"),
+                            loot.get("rarity", ""), loot.get("count", 1),
+                            loot.get("type", "item"),
+                            loot.get("tooltip", ""),
+                            loot.get("tooltip_lines"),
+                        )
 
                     grid_rows = (len(loot_items) + max_cols - 1) // max_cols
                     row_y += grid_rows * (slot_sz + slot_gap) + 8

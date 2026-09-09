@@ -5,7 +5,58 @@
 > история stage'ей (ЕДИНСТВЕННЫЙ таймлайн — нигде не дублируется), готчи,
 > баги, константы, реестр идей, TODO.
 
-## Текущая версия: **v202.0**
+## Текущая версия: **v202.1**
+
+**Stage 203 — рефакторинг UI по чек-листу REFACTORING_PROMPT_diff.md (дубли,
+мёртвый код, UI_THEME) — с честными поправками к промту:**
+- **Честная оценка промта ДО реализации**: задачи #1.1 (тултип статуса) и
+  #3.1 (модульные шрифты endgame) УЖЕ выполнены в Stage 201/202 — проверено
+  по коду (render_tooltip_panel используется; _FONT_* только в комментариях);
+  #1.3 НЕ принят как есть — _wrap_text живой (единственный пользователь —
+  _render_skill_tooltip, встроенная панель фикс-области, НЕ «панель у
+  курсора»); #2.1 в лоб НЕ принят — реестр _window_close_buttons
+  персистентный и гейтится open_attr, у MAP-модалок его нет (чар-лист слот 2
+  рендерится с monkey-patch флага) — stale-записи вечно глотали бы клики;
+  #5.1 в лоб НЕ принят — в ассетах неквадратные иконки (51×78, 65×57),
+  _su_image(48,48) растягивал бы их; в промте также ПРОПУЩЕНА связка:
+  hasattr-гарды endgame ссылаются на _load_item/_gem_icon_surface, которые
+  удаляет #5.1 — после обоих правок иконки лута стали бы None.
+- **ui/tooltip.py** (хелпер Stage 202 расширен для 3-го потребителя):
+  TooltipLine.rule (линия-разделитель вместо текста), PanelStyle.min_w,
+  render_tooltip_panel(prefer_below=) (anchor-режим: ПОД якорем с флипом
+  вверх — позиция баф-тултипа MAP).
+- **render_map.py**: _render_buff_tooltip переписана на хелпер (rule-линии,
+  min_w 170, gold-рамка, anchor prefer_below — вид 1:1); _wrap_tooltip_text
+  удалена; X-кнопка модалок рисуется через ОБЩИЙ _draw_close_x_square
+  (scaling.py), хиттест остался покадровым ClickRect; _render_map_bar
+  УДАЛЕНА (−45 строк) — 3 call sites → _render_bar(..., simple=True).
+- **render_battle.py**: _render_bar получил simple-режим (без
+  тени/ghost/блика/shine; рамка MAP_PANEL_BORDER su(1), радиус 3, лейбл
+  10px bold — вид MAP-полосок сохранён 1:1); в endgame удалены мёртвые
+  hasattr-гарды и 55-строчный fallback-рендер лута (QuickBattleRendererMixin
+  всегда в PygameUI); иконки лута → _su_image(path, 42, 42, fit=True)
+  (42 = 48−6, прежний внутренний отступ).
+- **scaling.py**: _su_image(fit=True) — вписывание с СОХРАНЕНИЕМ ПРОПОРЦИЙ
+  (кэш ключ +"#fit"); _draw_close_x_square — единый визуал красного Х
+  (цвета в UI_THEME), используют _render_window_close_button и
+  _render_close_x_button (non-hover оттенок MAP 140,30,30 → 120,28,28 —
+  унификация, на глаз незаметно).
+- **render_quick_battle.py**: _load_item_icon_surface/_load_gem_icon_surface
+  удалены (−52 строки) — call sites → _su_image(fit=True); путь иконок
+  предметов через ASSETS_DIR (был dirname×4-хак).
+- **config.py**: UI_THEME — семантические цвета UI (zinc/gold/red/emerald/
+  blue/white/black + close_x_bg/tooltip_sep/green_soft); миграция ~940
+  сырых троек ПОСТЕПЕННАЯ (по мере касания кода) — трогаемый код Stage 203
+  уже на UI_THEME.
+- Итог: ~140 строк дублей/мёртвого кода удалено; verify_stage202 13/13
+  (хелпер с расширениями совместим), verify_battle_native 18/18,
+  diag_replay_flow 10/10, diag_click_offset (0 dead), diag_e2e_clicks,
+  diag_window_drag, diag_drag_ghost, diag_battle_bg, hidpi_smoke — ALL
+  PASS; py_compile, ruff 0; headless-смоук новых веток (rule/min_w/
+  prefer_below, _render_bar simple+pulse) — OK.
+- Витрина: pockie_rpg_v202.1.zip.
+
+## Предыдущая версия: v202.0
 
 **Stage 202 — фиксы боя (числа урона, подложка уровня) + единый хелпер
 «панель у курсора» + fade-in окна боя + разбивка _render_hud:**
@@ -766,6 +817,13 @@ _drop_shadow; стеклянный блик полосок:**
   ui/tooltip.py — единая «панель у курсора» (статус + лут); fade-in окна
   боя 0.15с (окно+рамка+затемнение, MODAL_FADE_SEC); _render_hud →
   5 методов (player/enemy/status_icons/gauntlet_queue).
+- **Stage 203 (v202.1)** — рефакторинг UI по чек-листу (REFACTORING_PROMPT):
+  баф-тултип MAP → ui/tooltip.py (+rule/min_w/prefer_below); _render_map_bar
+  удалена → _render_bar(simple=True) — одна полоска на оба экрана;
+  иконки лута → _su_image(fit=True) (сохранение пропорций), дубли кэша
+  удалены; мёртвые hasattr-гарды/fallback endgame снесены; общий визуал
+  Х-кнопки (_draw_close_x_square); UI_THEME (постепенная замена ~940 сырых
+  RGB-троек).
 - **Stage 201 (v201.0)** — нативный Hi-DPI бой: окно боя рисуется ×(UI_SCALE×
   BATTLE_WINDOW_SCALE=1.2) в offscreen-поверхность окна, композит 1:1 без
   ресемпла; ClickRect'ы боя — ДИЗАЙН (мышь ремапится _map_battle_mouse);
@@ -1300,6 +1358,20 @@ _drop_shadow; стеклянный блик полосок:**
   клампнутой позиции при рендере (инвентарь клампит modal_y [64..664-h]);
   захват drag по ИН реестровой, ИН persist-шапке; квадратный Х 26×26 в углу —
   клик по Х приоритетнее drag-захвата (реестр `_window_close_buttons`, is_native).
+- **Две семантики Х-кнопок (Stage 203)**: окна с drag-шапкой — персистентный
+  реестр `_window_close_buttons` (гейт open_attr — проверить при добавлении
+  нового ключа, иначе stale-кнопка глотает клики); MAP-модалки (скилы,
+  чар-лист) — покадровый ClickRect `close_x_btn` (умирает в конце кадра,
+  ничего не глотает). Визуал общий — `_draw_close_x_square`; НЕ мержить
+  хиттесты: у чар-листа слот 2 флаг `_char_sheet_open` monkey-patchится
+  при рендере — open_attr-гейт для него недостоверен.
+- **Иконки лута НЕКВАДРАТНЫЕ** (51×78, 65×57): любая загрузка — только
+  `_su_image(..., fit=True)` (вписывание с пропорциями); прямая
+  smoothscale в бокс искажает. 42 = 48−6 — внутренний отступ иконки в слоте.
+- **hasattr-гарды на методы миксинов PygameUI — всегда True** (все миксины
+  в одном классе): это мёртвый код, не писать новые; перед удалением
+  метода проверить ВСЕ hasattr на него (промт Stage 203 пропустил связку
+  гардов endgame с удаляемыми _load_*_icon_surface — иконки стали бы None).
 - **Клики/нативная фаза (Stage 159/160)**: rebind `_click_rects` в нативной фазе
   ЗАПРЕЩЁН (см. RULES.md §Hi-DPI); хиттест вне ClickRect-диспетчера — is_native +
   ×_ui_scale; снапшоты фреймбуфера ЗАПРЕЩЕНЫ (буфер не обновляется нативно) —
@@ -1464,6 +1536,23 @@ _drop_shadow; стеклянный блик полосок:**
       _static_surface-примитивы (ghost рисуется каждый кадр).
 - [ ] 💡 Единый fade-хелпер present-слоя (dim+рамка+окно) — обобщить
       инлайн fade-логику _present_fullscreen для будущих экранов.
+
+**Рефакторинг UI (Stage 203)**
+- [ ] ⚡ UI_THEME: кодмод-миграция топ-20 самых частых RGB-троек
+      (~700 из ~940) через разовый скрипт + eyeball-скриншоты MAP/боя.
+- [ ] ⚡ _render_skill_tooltip: pixel-перенос через хелпер-обёртку +
+      _su_font вместо посимвольного _wrap_text и фиксированных
+      font_skills_* (проверить фазу рендера чар-листа на 2К).
+- [ ] ⚡ hidpi_smoke: +кейс hover иконки бафа MAP (баф-тултип через хелпер
+      сейчас не покрыт смоуком).
+- [ ] 💡 STATUS_TOOLTIPS: третье поле «шаблон строки хода» (data-driven
+      вместо f-string в _render_status_tooltip).
+- [ ] 💡 _su_surface_cache: LRU-кап (fit-иконки/градиенты/рамки копятся,
+      аудит 5.2 стиль — у _su_text кап 2048 уже есть).
+- [ ] 💡 config: константы-дубликаты значений UI_THEME (MAP_PANEL_BORDER
+      == gold и т.п.) → ссылки на UI_THEME (единый источник значений).
+- [ ] 💡 TooltipLine: hanging indent для перенесённых строк (описания
+      скиллов/бафов читаются чище).
 
 **Геймплей / контент (Stage 177)**
 - [ ] 🔥 Проб/А.Блок у мобов всегда 0 — дать элитным мобам (боссы Лас Ночеса,

@@ -14,7 +14,13 @@ import os
 
 import pygame
 
-from pockie_rpg.config import RARITY_RGB, RARITY_SLOT_BG, SCREEN_HEIGHT, SCREEN_WIDTH
+from pockie_rpg.config import (
+    ASSETS_DIR,
+    RARITY_RGB,
+    RARITY_SLOT_BG,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH,
+)
 from pockie_rpg.ui.animator import ClickRect
 from pockie_rpg.ui.tooltip import PanelStyle, TooltipLine, render_tooltip_panel
 
@@ -139,57 +145,6 @@ class QuickBattleRendererMixin:
     # ------------------------------------------------------------------
     # Stage 114 — LOOT GRID RENDERING HELPERS
     # ------------------------------------------------------------------
-
-    def _load_item_icon_surface(self, icon_filename: str, target_sz: int) -> pygame.Surface | None:
-        """Load and cache an item icon scaled to target_sz × target_sz."""
-        if not hasattr(self, "_loot_icon_cache"):
-            self._loot_icon_cache: dict[str, pygame.Surface] = {}
-        # Аудит 2026-09 — кап кэша (файлы лута конечны, но лимит страховочный).
-        if len(self._loot_icon_cache) > 256:
-            self._loot_icon_cache.clear()
-        cache_key = f"{icon_filename}_{target_sz}"
-        if cache_key in self._loot_icon_cache:
-            return self._loot_icon_cache[cache_key]
-        icon_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-            "assets", "icons", "items", icon_filename
-        )
-        try:
-            raw = pygame.image.load(icon_path).convert_alpha()
-            iw, ih = raw.get_size()
-            max_w = target_sz - 6
-            max_h = target_sz - 6
-            scale = min(max_w / iw, max_h / ih)
-            new_w = max(1, int(iw * scale))
-            new_h = max(1, int(ih * scale))
-            scaled = pygame.transform.smoothscale(raw, (new_w, new_h))
-            self._loot_icon_cache[cache_key] = scaled
-            return scaled
-        except Exception:
-            return None
-
-    def _load_gem_icon_surface(self, icon_path: str, target_sz: int) -> pygame.Surface | None:
-        """Load and cache a gem icon scaled to target_sz × target_sz."""
-        if not hasattr(self, "_loot_gem_cache"):
-            self._loot_gem_cache: dict[str, pygame.Surface] = {}
-        # Аудит 2026-09 — кап кэша.
-        if len(self._loot_gem_cache) > 256:
-            self._loot_gem_cache.clear()
-        cache_key = f"{icon_path}_{target_sz}"
-        if cache_key in self._loot_gem_cache:
-            return self._loot_gem_cache[cache_key]
-        try:
-            raw = pygame.image.load(icon_path).convert_alpha()
-            src_size = raw.get_width()
-            if src_size > 0 and target_sz != src_size:
-                scale = (target_sz - 6) / src_size
-                scaled = pygame.transform.rotozoom(raw, 0, scale)
-            else:
-                scaled = raw
-            self._loot_gem_cache[cache_key] = scaled
-            return scaled
-        except Exception:
-            return None
 
     def _render_loot_slot(self, x: int, y: int, sz: int, icon_surf: pygame.Surface | None,
                           rarity: str = "", count: int = 1, icon_type: str = "item",
@@ -394,7 +349,7 @@ class QuickBattleRendererMixin:
         for (g_type, g_level), count in gem_counts.items():
             icon_file = get_gem_icon_filename(g_type, g_level)
             icon_path = str(GEM_ICON_DIR / icon_file)
-            icon_surf = self._load_gem_icon_surface(icon_path, 48)
+            icon_surf = self._su_image(icon_path, 42, 42, fit=True)
             from pockie_rpg.data.item_db import get_gem
             gem_def = get_gem(g_type)
             gem_name = gem_def.get("name", g_type) if gem_def else g_type
@@ -443,7 +398,10 @@ class QuickBattleRendererMixin:
                 matched_item = self.player.generated_weapons.get(item_id)
                 if matched_item is not None:
                     icon_filename = matched_item.get("icon_filename", icon_filename)
-            icon_surf = self._load_item_icon_surface(icon_filename, 48)
+            icon_path = os.path.join(str(ASSETS_DIR), "icons", "items", icon_filename)
+            # Stage 203 — _su_image(fit) вместо удалённых _load_item/_gem_icon_surface
+            # (42 = 48 − 6 — прежний внутренний отступ иконки в слоте).
+            icon_surf = self._su_image(icon_path, 42, 42, fit=True)
             tooltip_lines = None
             if matched_item is not None:
                 tooltip_lines = self._build_loot_tooltip_lines(

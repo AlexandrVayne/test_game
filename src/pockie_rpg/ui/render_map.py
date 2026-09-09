@@ -11,7 +11,6 @@ Native-фаза (2К): базовый экран рисуется прямо н�
 """
 from __future__ import annotations
 
-import math
 import os
 
 import pygame
@@ -55,10 +54,6 @@ from pockie_rpg.config import (
     BUTTON_TEXT_HOVER,
     HP_BG_COLOR,
     HP_FILL_COLOR,
-    HP_PULSE_FREQ_HZ,
-    HP_PULSE_MAX,
-    HP_PULSE_MIN,
-    HP_PULSE_RATIO,
     MAP_AVATAR_SIZE,
     MAP_CARD_ACCENT,
     MAP_CARD_AVATAR_SLOT,
@@ -104,11 +99,13 @@ from pockie_rpg.config import (
     TEST_ENTRY_BTN_W,
     TEXT_WHITE,
     TEXT_YELLOW,
+    UI_THEME,
 )
 from pockie_rpg.data.models import EnemyDef
 from pockie_rpg.data.quests_db import STORY_QUESTS
 from pockie_rpg.game.state import ENEMY_MOBS, ROLES, STARTER_SUITS
 from pockie_rpg.ui.animator import ClickRect
+from pockie_rpg.ui.tooltip import PanelStyle, TooltipLine, render_tooltip_panel
 
 
 class MapRendererMixin:
@@ -940,7 +937,7 @@ class MapRendererMixin:
 
         player_hp = min(self.player.current_hp, self.player.stats.max_hp)
         player_max_hp = self.player.stats.max_hp
-        self._render_map_bar(
+        self._render_bar(
             hp_x, hp_y, hp_w, hp_h,
             value=player_hp,
             maximum=player_max_hp,
@@ -948,29 +945,32 @@ class MapRendererMixin:
             bg_color=HP_BG_COLOR,
             label=f"HP {player_hp}/{player_max_hp}",
             pulse_when_low=True,
+            simple=True,
         )
 
         mp_y = hp_y + hp_h + 2
         player_mp = min(self.player.current_mp, self.player.stats.max_mp)
         player_max_mp = self.player.stats.max_mp
-        self._render_map_bar(
+        self._render_bar(
             hp_x, mp_y, MAP_MP_BAR_W, MAP_MP_BAR_H,
             value=player_mp,
             maximum=player_max_mp,
             fill_color=MP_FILL_COLOR,
             bg_color=MP_BG_COLOR,
             label=f"MP {player_mp}/{player_max_mp}",
+            simple=True,
         )
 
         xp_y = mp_y + MAP_MP_BAR_H + 2
         xp_for_bar = min(self.player.xp, self.player.xp_to_next)
-        self._render_map_bar(
+        self._render_bar(
             hp_x, xp_y, MAP_EXP_BAR_W, MAP_EXP_BAR_H,
             value=xp_for_bar,
             maximum=self.player.xp_to_next,
             fill_color=MAP_LEVEL_TEXT_COLOR,
             bg_color=MAP_EXP_BAR_BG,
             label=f"EXP {self.player.xp}/{self.player.xp_to_next}",
+            simple=True,
         )
 
         # «Ур. N» — справа от самой длинной (HP) полосы.
@@ -1162,133 +1162,37 @@ class MapRendererMixin:
             ─────────────
             Время 3:15:20 осталось
 
-        Stage 182 fix — текст больше НЕ выезжает: ширина панели = max(минимум,
-        самый широкий текст + паддинги); все элементы рисуются внутри с
-        одинаковым отступом от левого края. Шрифты уменьшены (12/11).
+        Stage 203 — через единый хелпер ui/tooltip.py (render_tooltip_panel):
+        rule-разделители, min_w 170, anchor prefer_below (под иконкой,
+        флип вверх у низа экрана) — вид и позиция как в ручной реализации,
+        убраны дублированные построение панели/перенос/флип/кламп.
         """
-        su = self._su
-        f_title = self._su_font(12, bold=True)
-        f_body = self._su_font(11)
-        f_time = self._su_font(11, bold=True)
-
         remaining = max(0, int(buff.get("remaining_sec", 0)))
         h, rem, s = remaining // 3600, (remaining % 3600) // 60, remaining % 60
         time_str = f"Время {h}:{rem:02d}:{s:02d} осталось"
 
-        name = buff.get("name", "")
-        desc = buff.get("desc", "")
-        pad = 8
-        line_gap = 2
-
-        # Растровая подгонка ширины: самый широкий текст + 2×pad (min 170).
-        texts_w = max(
-            f_title.size(name)[0],
-            f_body.size(desc)[0],
-            f_time.size(time_str)[0],
+        lines = [
+            TooltipLine(buff.get("name", ""), UI_THEME["white"], size=12, bold=True),
+            TooltipLine("", UI_THEME["tooltip_sep"], space_before=4, rule=True),
+            TooltipLine(buff.get("desc", ""), UI_THEME["zinc_300"], size=11,
+                        space_before=5),
+            TooltipLine("", UI_THEME["tooltip_sep"], space_before=5, rule=True),
+            TooltipLine(time_str, UI_THEME["green_soft"], size=11, bold=True,
+                        space_before=5),
+        ]
+        style = PanelStyle(
+            bg=(16, 16, 20, 238),
+            border=UI_THEME["gold"],
+            border_w=1,
+            radius=6,
+            pad_x=8,
+            pad_y=8,
+            min_w=170,
         )
-        w = max(170, texts_w + pad * 2)
-
-        desc_lines = self._wrap_tooltip_text(desc, f_body, w - pad * 2)
-        h_total = (
-            pad + f_title.get_height() + 4
-            + 1 + 5
-            + len(desc_lines) * (f_body.get_height() + line_gap) + 5
-            + 1 + 5
-            + f_time.get_height() + pad
+        render_tooltip_panel(
+            self, lines, anchor=anchor_rect, style=style,
+            wrap_width=200, prefer_below=True,
         )
-        # Позиция: под иконкой (у иконки низ экрана — флип вверх).
-        tx = anchor_rect.centerx - w // 2
-        tx = max(8, min(tx, SCREEN_WIDTH - w - 8))
-        ty = anchor_rect.bottom + 6
-        if ty + h_total > SCREEN_HEIGHT - 8:
-            ty = anchor_rect.top - h_total - 6
-        ty = max(8, ty)
-
-        panel = pygame.Surface((su(w), su(h_total)), pygame.SRCALPHA)
-        panel.fill((16, 16, 20, 238))
-        pygame.draw.rect(panel, (234, 179, 8, 255),
-                         (0, 0, su(w), su(h_total)), 1, border_radius=6)
-        self.screen.blit(panel, (su(tx), su(ty)))
-
-        cy = ty + pad
-        name_surf = f_title.render(name, True, (255, 255, 255))
-        self.screen.blit(name_surf, (su(tx + pad), su(cy)))
-        cy += f_title.get_height() + 4
-        pygame.draw.line(self.screen, (70, 70, 78),
-                         (su(tx + pad), su(cy)), (su(tx + w - pad), su(cy)), 1)
-        cy += 5
-        for line in desc_lines:
-            body = f_body.render(line, True, (200, 200, 210))
-            self.screen.blit(body, (su(tx + pad), su(cy)))
-            cy += f_body.get_height() + line_gap
-        cy += 5
-        pygame.draw.line(self.screen, (70, 70, 78),
-                         (su(tx + pad), su(cy)), (su(tx + w - pad), su(cy)), 1)
-        cy += 5
-        time_surf = f_time.render(time_str, True, (150, 220, 150))
-        self.screen.blit(time_surf, (su(tx + pad), su(cy)))
-
-    @staticmethod
-    def _wrap_tooltip_text(text: str, font: pygame.font.Font, max_w: int) -> list[str]:
-        """Пословный перенос текста для тултипа бафа."""
-        words = text.split()
-        lines: list[str] = []
-        cur = ""
-        for word in words:
-            probe = f"{cur} {word}".strip()
-            if font.size(probe)[0] <= max_w or not cur:
-                cur = probe
-            else:
-                lines.append(cur)
-                cur = word
-        if cur:
-            lines.append(cur)
-        return lines
-
-    def _render_map_bar(
-        self,
-        x: int,
-        y: int,
-        w: int,
-        h: int,
-        value: int,
-        maximum: int,
-        fill_color: tuple[int, int, int],
-        bg_color: tuple[int, int, int],
-        label: str = "",
-        pulse_when_low: bool = False,
-    ) -> None:
-        """Render a thin horizontal bar for the MAP panel (HP/MP/EXP).
-
-        Stage 87 — when ``pulse_when_low`` is True (HP bar) and the value
-        ratio drops below ``HP_PULSE_RATIO`` (25%), the fill color brightness
-        oscillates at ``HP_PULSE_FREQ_HZ`` (1 Hz) — alpha-like pulse without
-        per-frame surface allocation.
-
-        Stage 153 — аргументы в ДИЗАЙН-координатах, отрисовка через _su.
-        """
-        rect = self._su_rect(x, y, w, h)
-        pygame.draw.rect(self.screen, bg_color, rect, border_radius=3)
-        if maximum > 0:
-            fill_w = max(0, int(w * value / maximum))
-            if fill_w > 0:
-                fill_rect = self._su_rect(x, y, fill_w, h)
-                # Stage 87 — pulse when HP is low.
-                ratio = value / maximum
-                if pulse_when_low and ratio < HP_PULSE_RATIO:
-                    # sin in [0,1] at 1 Hz; pulse_factor in [HP_PULSE_MIN, HP_PULSE_MAX].
-                    phase = (math.sin(self._hp_pulse_timer * 2.0 * math.pi * HP_PULSE_FREQ_HZ) + 1.0) * 0.5
-                    pulse_factor = HP_PULSE_MIN + (HP_PULSE_MAX - HP_PULSE_MIN) * phase
-                    tinted = tuple(min(255, int(c * pulse_factor)) for c in fill_color)
-                    pygame.draw.rect(self.screen, tinted, fill_rect, border_radius=3)
-                else:
-                    pygame.draw.rect(self.screen, fill_color, fill_rect, border_radius=3)
-        pygame.draw.rect(self.screen, MAP_PANEL_BORDER, rect, self._su(1), border_radius=3)
-
-        if label:
-            label_surf = self._su_text(label, _FS_MAP_LABEL[0], TEXT_WHITE, bold=True)
-            label_rect = label_surf.get_rect(center=rect.center)
-            self.screen.blit(label_surf, label_rect.topleft)
 
     def _render_close_x_button(self, win_x: int, win_y: int, win_w: int, on_click) -> None:
         """Stage 30 — render an 'X' close button at the top-right of a modal.
@@ -1301,21 +1205,17 @@ class MapRendererMixin:
 
         Stage 151 — аргументы в ДИЗАЙН-координатах; отрисовка через self._su()
         (identity в legacy-фазе, ×UI_SCALE в native-фазе Hi-DPI).
+        Stage 203 — визуал через общий _draw_close_x_square (scaling.py);
+        хиттест остаётся ПОКАДРОВЫМ ClickRect: персистентный реестр
+        _window_close_buttons гейтится open_attr, которого у MAP-модалок
+        нет — устаревшая запись глотала бы клики после закрытия модалки.
         """
         from pockie_rpg.ui.scaling import CLOSE_X_SIZE
         su = self._su
         size = su(CLOSE_X_SIZE)
         btn_rect = pygame.Rect(su(win_x) + su(win_w), su(win_y), size, size)
         hover = btn_rect.collidepoint(self._mouse_pos)
-        bg_color = (200, 40, 40) if hover else (140, 30, 30)
-        pygame.draw.rect(self.screen, bg_color, btn_rect, border_radius=su(4))
-        # White "×" glyph (two diagonal lines).
-        cx, cy = btn_rect.centerx, btn_rect.centery
-        d = size // 2 - su(7)
-        pygame.draw.line(self.screen, (255, 255, 255),
-                         (cx - d, cy - d), (cx + d, cy + d), su(2))
-        pygame.draw.line(self.screen, (255, 255, 255),
-                         (cx - d, cy + d), (cx + d, cy - d), su(2))
+        self._draw_close_x_square(btn_rect, hover)
         self._click_rects.append(ClickRect(tag="close_x_btn", rect=btn_rect, on_click=on_click))
 
     def _save_player(self) -> None:

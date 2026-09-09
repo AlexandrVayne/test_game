@@ -126,7 +126,7 @@ python -m pockie_rpg.main
 
 ```
 src/pockie_rpg/
-├── config.py                    (2135)  UI/окна/данные-константы + TowerDB +
+├── config.py                    (2185)  UI/окна/данные-константы + UI_THEME (Stage 203 — семантические цвета UI, постепенная замена сырых RGB) + TowerDB +
 │                                       прогрессия/экономика (Stage 170: LEVEL_XP_CURVE,
 │                                       ATK_TIME_*, GEM_*, TEST_START_*); боевая математика
 │                                       ПЕРЕЕХАЛА в combat/formulas.py — в конце
@@ -169,12 +169,12 @@ src/pockie_rpg/
     ├── assets.py                 (668)  AssetManager (LRU-кеш спрайтов, фреймов, иконок, фонтов)
     ├── effects.py                (430)  IceBlockEffect, EffectOverlay, CastEffect, ProjectileEffect
     ├── particles.py              (338)  ParticleSystem + DamageNumberSystem
-    ├── tooltip.py                 (~130)  Stage 202: единая «панель у курсора» — TooltipLine/PanelStyle/render_tooltip_panel (cursor|anchor, перенос, флип у краёв); используют тултипы статусов (render_battle) и лута (render_quick_battle)
+    ├── tooltip.py                 (~175)  Stage 202/203: единая «панель у курсора» — TooltipLine (в т.ч. rule-линии)/PanelStyle (min_w)/render_tooltip_panel (cursor|anchor, prefer_below, перенос, флип у краёв); используют тултипы статусов (render_battle), лута (render_quick_battle) и бафов MAP (render_map)
     ├── combat_replay.py         (1068)  CombatReplayMixin — реплей боя, тайминги, применение урона
-    ├── render_battle.py         (1210)  BattleRendererMixin — экран боя (HUD, бойцы, оверлеи, endgame); Stage 202: _render_hud → 5 методов (оркестратор + _render_hud_player/_render_hud_enemy, возвращают якоря полосок + _render_hud_status_icons/_render_gauntlet_queue), тултип статуса через ui/tooltip.py
+    ├── render_battle.py         (1150)  BattleRendererMixin — экран боя (HUD, бойцы, оверлеи, endgame); Stage 202: _render_hud → 5 методов; Stage 203: _render_bar(simple=True) — общий рендер полосок MAP+бой, endgame без hasattr-гардов/fallback, иконки лута _su_image(fit=True)
     ├── render_worldmap.py       (~560)  WorldMapRendererMixin — Stage 135: мировая карта (5 слоёв, хиттест, тултип)
-    ├── scaling.py               (~285)  ScalableRendererMixin — Stage 152/153: _su/_su_font/_su_rect/_su_icon_size/_su_scaled/_su_image/_su_overlay + fade модалок; Stage 168 (аудит 5.2): _su_text (LRU-кэш отрисованного текста, кап 2048, НЕ мутировать) + _static_surface (draw-once кэш SRCALPHA-поверхностей)
-    ├── render_map.py            (~910)  MapRendererMixin — MAP НАТИВНО (Hi-DPI, Stage 153) + bottom bar + enemy cards (клик по ВСЕЙ карточке открывает бой — Stage 167)
+    ├── scaling.py               (~300)  ScalableRendererMixin — Stage 152/153: _su/_su_font/_su_rect/_su_icon_size/_su_scaled/_su_image/_su_overlay + fade модалок; Stage 168 (аудит 5.2): _su_text (LRU) + _static_surface; Stage 203: _su_image(fit=True) — вписывание с сохранением пропорций (неквадратные иконки) + _draw_close_x_square (общий визуал Х-кнопок)
+    ├── render_map.py            (~865)  MapRendererMixin — MAP НАТИВНО (Hi-DPI, Stage 153) + bottom bar + enemy cards (клик по ВСЕЙ карточке — Stage 167); Stage 203: HP/MP/EXP через _render_bar(simple=True), баф-тултип через ui/tooltip.py (prefer_below), _render_map_bar удалена
     ├── render_inventory.py     (~1795)  InventoryRendererMixin — инвентарь НАТИВНО (Hi-DPI, Stage 151), drag&drop; сетка 12×8, окно 491, кнопки 118, 10 вкладок (Stage 167; ITEMS_PER_PAGE=128 не урезать — визуальный гейт _can_visually_fit); заглушки (Stage 163); якоря-списки (Stage 164); тултип БЕЗ «Продажа»/«[RARITY]» (Stage 177)
     ├── render_synth.py           (~775)  Synth+WardrobeRendererMixin — синтез костюмов (400×248, 4 слота в ряд с ячейками 2 кол. × 3 ряда — Stage 167; слоты хранят item_id — физический перенос, возврат ПКМ/кликом; результат +N+1 остаётся в слоте результата, «(костюм +N)»/шанс под ним; тултипы слотов — Stage 166) + гардероб (480×484; 25 слотов = 5 страниц × 5 с пагинацией снизу, глобальный индекс страница×5+i — Stage 167); без затемнения (Stage 162)
     ├── render_forge.py          (922)  ForgeRendererMixin — Кузница НАТИВНО (Hi-DPI, Stage 152): заточка/камни/синтез

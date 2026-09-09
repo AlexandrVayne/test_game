@@ -269,6 +269,24 @@ class ScalableRendererMixin:
         if self._window_pos(key, w_design, h_design) != (design_x, design_y):
             self._set_window_pos(key, design_x, design_y, w_design, h_design)
 
+    def _draw_close_x_square(self, btn: pygame.Rect, hover: bool) -> None:
+        """Stage 203 — общий визуал квадратной X-кнопки (красный квадрат + ×).
+
+        Единственный источник цветов/глифа для _render_window_close_button
+        (окна с drag-шапкой, реестр) и _render_close_x_button
+        (MAP-модалки, покадровый ClickRect — реестр им НЕ подходит:
+        персистентные записи гейтятся open_attr, которого у них нет).
+        """
+        from pockie_rpg.config import UI_THEME
+        bg = UI_THEME["close_x_bg_hover"] if hover else UI_THEME["close_x_bg"]
+        pygame.draw.rect(self.screen, bg, btn, border_radius=self._su(4))
+        cx, cy = btn.centerx, btn.centery
+        d = btn.w // 2 - self._su(7)
+        pygame.draw.line(self.screen, (255, 255, 255),
+                         (cx - d, cy - d), (cx + d, cy + d), self._su(2))
+        pygame.draw.line(self.screen, (255, 255, 255),
+                         (cx - d, cy + d), (cx + d, cy - d), self._su(2))
+
     def _render_window_close_button(self, key: str, panel: pygame.Rect,
                                     on_close) -> None:
         """Stage 159 — КВАДРАТНЫЙ Х ЗАКРЫТИЯ у правого верхнего угла окна.
@@ -285,14 +303,7 @@ class ScalableRendererMixin:
         size = su(CLOSE_X_SIZE)
         btn = pygame.Rect(panel.right, panel.y, size, size)
         hov = btn.collidepoint(self._mouse_pos)
-        bg = (200, 40, 40) if hov else (120, 28, 28)
-        pygame.draw.rect(self.screen, bg, btn, border_radius=su(4))
-        cx, cy = btn.centerx, btn.centery
-        d = size // 2 - su(7)
-        pygame.draw.line(self.screen, (255, 255, 255),
-                         (cx - d, cy - d), (cx + d, cy + d), su(2))
-        pygame.draw.line(self.screen, (255, 255, 255),
-                         (cx - d, cy + d), (cx + d, cy - d), su(2))
+        self._draw_close_x_square(btn, hov)
         is_native = getattr(self, "_render_scale", 1.0) > 1.0
         self._window_close_buttons()[key] = (btn, on_close, is_native)
         self._click_rects.append(ClickRect(
@@ -511,11 +522,15 @@ class ScalableRendererMixin:
             cache[ck] = out
         return out
 
-    def _su_image(self, path: str, dw: float, dh: float) -> pygame.Surface | None:
+    def _su_image(self, path: str, dw: float, dh: float,
+                  fit: bool = False) -> pygame.Surface | None:
         """Загрузить PNG с диска ОДИН раз и отмасштабировать под текущий масштаб.
 
         `None` — файл отсутствует/битый (повторных попыток нет: провал кэшируется).
         Заменяет per-frame `pygame.image.load` в MAP-рендере (Stage 153).
+        Stage 203 — `fit=True`: вписать в бокс dw×dh С СОХРАНЕНИЕМ ПРОПОРЦИЙ
+        (иконки лута неквадратные — 51×78, 65×57; раньше дублировало
+        _load_item/_gem_icon_surface), вернётся поверхность ≤ бокса.
         """
         raw_cache = getattr(self, "_su_image_raw_cache", None)
         if raw_cache is None:
@@ -530,6 +545,21 @@ class ScalableRendererMixin:
             raw_cache[path] = raw
         if raw is None:
             return None
+        if fit:
+            tw, th = self._su(dw), self._su(dh)
+            cache = getattr(self, "_su_surface_cache", None)
+            if cache is None:
+                cache = self._su_surface_cache = {}
+            ck = (f"{path}#fit", tw, th)
+            out = cache.get(ck)
+            if out is None:
+                iw, ih = raw.get_size()
+                sc = min(tw / iw, th / ih)
+                out = pygame.transform.smoothscale(
+                    raw, (max(1, int(iw * sc)), max(1, int(ih * sc)))
+                )
+                cache[ck] = out
+            return out
         return self._su_scaled(path, raw, dw, dh)
 
     def _su_overlay(self, alpha: int) -> pygame.Surface:
